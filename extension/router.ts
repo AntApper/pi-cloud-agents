@@ -3,6 +3,7 @@
  */
 
 import { handleCloudConfigCommand } from "./commands/config.js";
+import { handleCloudSetupCommand } from "./commands/setup.js";
 import { handleCloudSyncCommand } from "./commands/sync.js";
 import { type DoctorProbeOptions, formatDoctorTable, runDoctorDiagnostics } from "./doctor.js";
 
@@ -249,6 +250,10 @@ export async function routeCloudCommand(
       output: tableText,
       handled: true,
     };
+  }
+
+  if (sub === "setup") {
+    return handleCloudSetupCommand(subArgs, ctx);
   }
 
   if (sub === "config") {

@@ -663,6 +663,9 @@ export function resolvePiAgentDir(customDir?: string): string {
   if (customDir) {
     return path.resolve(customDir);
   }
+  if (process.env.PI_AGENT_DIR && process.env.PI_AGENT_DIR !== "undefined") {
+    return path.resolve(process.env.PI_AGENT_DIR);
+  }
   if (process.env.PI_CODING_AGENT_DIR && process.env.PI_CODING_AGENT_DIR !== "undefined") {
     return path.resolve(process.env.PI_CODING_AGENT_DIR);
   }

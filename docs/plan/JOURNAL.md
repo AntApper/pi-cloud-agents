@@ -144,6 +144,14 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t4.5-t4.11-t4.13-t4.3a · T4.5, T4.11, T4.13, T4.3a
+- did: implemented MicroVM run client (`core/client/run-client.ts`), config editor & `/cloud config` (`core/config-editor.ts`, `extension/commands/config.ts`), credential bundle sync & `/cloud sync` (`core/sync.ts`, `extension/commands/sync.ts`), and setup wizard step machine with Prompter abstraction (`core/prompter.ts`, `core/setup/steps.ts`, `extension/prompter-pi.ts`, `cli/prompter-terminal.ts`, `extension/commands/setup.ts`).
+- validated: `npm run check` (39 test files / 350 tests green, 0 glyph violations).
+- left: T4.5, T4.11, T4.13, and T4.3a complete.
+- next: start `T4.3b` (`/cloud setup` execution) or `T4.4` (`/cloud new` launch flow) or `T4.6` (`/cloud list` and `/cloud status`).
+- aws: none
+- open: none
+
 
 
 
