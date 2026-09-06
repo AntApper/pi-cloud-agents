@@ -39,7 +39,7 @@
     "aws:cleanup": "tsx scripts/aws-cleanup.ts",
     "spike:aws-readiness": "tsx scripts/spike/aws-readiness.ts",
     "spike:credential-portability": "tsx scripts/spike/credential-portability.ts",
-    "spike:hello-microvm": "node scripts/spike/hello-microvm.js"
+    "spike:hello-microvm": "tsx scripts/spike/hello-microvm.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
@@ -63,6 +63,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-cloudformation": "^3.1127.0",
+    "@aws-sdk/client-iam": "^3.1127.0",
     "@aws-sdk/client-lambda-microvms": "^3.1127.0",
     "@aws-sdk/client-s3": "^3.1127.0",
     "@aws-sdk/client-secrets-manager": "^3.1127.0",

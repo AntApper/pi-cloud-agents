@@ -44,8 +44,18 @@ export function maskSecrets(text: string, secrets: string[] = []): string {
 }
 
 /**
- * Deeply clone and mask string values inside objects, arrays, and errors.
+ * Mask a token string, revealing only first and last few characters.
  */
+export function maskToken(token: string, visibleChars = 4): string {
+  if (!token || typeof token !== "string") {
+    return token;
+  }
+  if (token.length <= visibleChars * 2) {
+    return "[REDACTED_TOKEN]";
+  }
+  return `${token.slice(0, visibleChars)}...${token.slice(-visibleChars)}`;
+}
+
 export function maskObject<T>(value: T, secrets: string[] = []): T {
   if (value === null || value === undefined) {
     return value;

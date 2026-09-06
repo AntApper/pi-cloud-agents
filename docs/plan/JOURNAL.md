@@ -72,5 +72,14 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t0.3-hello-microvm · T0.3
+- did: implemented deterministic zip builder (`core/aws/zip.ts`), bundle generator (`core/aws/hello-bundle.ts`), spike engine (`core/aws/hello-microvm.ts`), CLI (`scripts/spike/hello-microvm.ts`), and 12 unit tests verifying HTTP/WS/SSE, port 9000 403 isolation, and lifecycle transitions.
+- validated: `npm run spike:hello-microvm -- --region us-east-1`, `npm run aws:cleanup -- --region us-east-1 --dry-run`, `npm run check` (53 tests green, 0 glyph violations).
+- left: T0.3 complete.
+- next: start `T0.4` (guest capabilities + keepalive spike) or `T0.5` (pi headless on ARM64 + mock LLM).
+- aws: none
+- open: none
+
+
 
 

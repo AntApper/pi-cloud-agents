@@ -7,4 +7,7 @@ export const CORE_VERSION = "0.1.0";
 export * from "./aws/mask.js";
 export * from "./aws/readiness.js";
 export * from "./aws/cleanup.js";
+export * from "./aws/zip.js";
+export * from "./aws/hello-bundle.js";
+export * from "./aws/hello-microvm.js";
 export * from "./credentials.js";

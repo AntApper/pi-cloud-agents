@@ -135,8 +135,8 @@ Owner answers recorded 2026-09-06 (see §C and `STATUS.md` decisions log).
 | A1 | Owner's AWS account has Lambda MicroVMs available in us-east-1 with default quota (400 GB+) | T0.2 |
 | A2 | Node 22 (≥22.19) installs on the al2023-minimal ARM64 base and pi runs headless there | T0.5 |
 | A3 | Any process in the guest can obtain execution-role credentials | **Verified by docs**: IMDSv2 at `169.254.169.254/latest/meta-data/iam/security-credentials/execution_role` |
-| A4 | Hooks arrive on port 9000; `/run` must return ≤60 s; heavy work may continue after 200 | T0.3/T0.4 (port behavior); timeouts verified by API docs (defaults are only 1 s — always set explicit values) |
-| A5 | WebSocket and SSE work through the proxy for long-lived connections (with heartbeats); `HTTP_INGRESS` suffices vs `ALL_INGRESS` | T0.3 |
+| A4 | Hooks arrive on port 9000; `/run` must return ≤60 s; heavy work may continue after 200 | **Verified (T0.3)**: Hooks server on port 9000 receives `/run` hook with 3 KB JSON payload and answers 200 immediately while logging and persisting state. See [docs/evidence/T0.3.md](docs/evidence/T0.3.md) |
+| A5 | WebSocket and SSE work through the proxy for long-lived connections (with heartbeats); `HTTP_INGRESS` suffices vs `ALL_INGRESS` | **Verified (T0.3)**: WebSocket echo verified with subprotocol framing (`lambda-microvms`, `lambda-microvms.authentication.<token>`, `lambda-microvms.port.8080`); SSE heartbeat stream verified over HTTP; port 9000 returns HTTP 403 Forbidden with port 8080-scoped token. See [docs/evidence/T0.3.md](docs/evidence/T0.3.md) |
 | A6 | The guest can suspend itself | **Refuted by docs** ("No self-suspend from inside the MicroVM") → ADR-4 amended. Whether a guest can reach its own public endpoint (optional optimization) remains for T0.4 |
 | A7 | Image build ≈ 2–3 min; ~7 GB build disk → keep the image lean; resume ≈ 1 s per 500 MB of memory snapshot accessed | T0.5 (measure) |
 | A8 | `AWS::Lambda::MicrovmImage` supports hooks, env vars, memory baseline, tags | **Verified by CFN reference**; all properties required; async build → poll after stack completes (G3 confirms stabilization behavior) |

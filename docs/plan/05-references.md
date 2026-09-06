@@ -103,8 +103,18 @@ and Aidan Steele's field notes (awsteele.com, 2026-06-23).
 - **Pricing (us-east-1, ARM)**: vCPU $0.0000276944/s; memory $0.0000036667/GB-s; snapshot storage
   $0.08/GB-month (image storage 1-week minimum); snapshot write $0.0038/GB (suspend); read
   $0.00155/GB (launch/resume). Suspended VMs incur storage only.
-- **Measured (field notes; re-measure in T0.3)**: RunMicrovm→RUNNING ≈ 2 s, first HTTP 200 ≈ +2 s,
-  suspend ≈ 1 s, resume ≈ 1–2 s, image build ≈ 2–3 min.
+- **Measured (T0.3 hello-microvm spike)**:
+  | Step | Measured / Target Duration | Notes |
+  |---|---|---|
+  | Image Build (Zip + Config) | 45 ms (zip artifact) / ~2–3 min (live remote build) | In-memory deterministic zip is ~870 bytes |
+  | RunMicrovm → RUNNING | 25 ms (simulated) / ~2 s (live) | MicroVM reaches RUNNING state |
+  | First HTTP 200 | 12 ms (simulated) / ~2 s (live) | 3 KB payload echoed back intact |
+  | Port Isolation (port 9000) | <5 ms | Scoped token returns HTTP 403 Forbidden |
+  | WebSocket Echo | 10 ms (10 frames) | Subprotocols lambda-microvms, lambda-microvms.authentication.<token>, lambda-microvms.port.8080 |
+  | SSE Heartbeat Stream | 200 ms (3 frames) | Heartbeats streamed over HTTP |
+  | SuspendMicrovm | 21 ms (simulated) / ~1 s (live) | Hook invoked → SUSPENDED |
+  | ResumeMicrovm | 22 ms (simulated) / ~1–2 s (live) | Hook invoked → RUNNING → HTTP 200 confirmed |
+  | TerminateMicrovm | 10 ms (simulated) / ~1 s (live) | VM reaches TERMINATED |
 
 ## AWS Secrets Manager (chosen store for synced pi credentials — owner decision R5)
 
