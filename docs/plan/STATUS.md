@@ -64,7 +64,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T4.3a | Setup wizard: quick setup default + custom | M | T4.1a, T4.1b, T4.2, T3.4 | done | [docs/evidence/T4.3a.md](docs/evidence/T4.3a.md) |
 | T4.3b | Setup execution (deploy, image, bundle, secrets) | M | T4.3a, T3.2, T3.3 | done | [docs/evidence/T4.3b.md](docs/evidence/T4.3b.md) |
 | T4.3c | Standalone CLI `npx pi-cloud-agents` | M | T4.3b | done | [docs/evidence/T4.3c.md](docs/evidence/T4.3c.md) |
-| T4.3d | Verification engine + `/cloud verify` | M | T4.3b, T4.5, T2.8 | ready | |
+| T4.3d | Verification engine + `/cloud verify` | M | T4.3b, T4.5, T2.8 | done | [docs/evidence/T4.3d.md](docs/evidence/T4.3d.md) |
 | T4.4 | `/cloud new` launch flow | M | T4.3b, T1.1 | ready | |
 | T4.5 | Run client (tokens, HTTP, SSE, WS) | M | T2.5b, T4.2 | done | [docs/evidence/T4.5.md](docs/evidence/T4.5.md) |
 | T4.6 | `/cloud list` and `/cloud status` detail card | M | T4.5, T2.6, T2.10, T4.1b | todo | |

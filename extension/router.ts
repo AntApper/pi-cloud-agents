@@ -5,6 +5,7 @@
 import { handleCloudConfigCommand } from "./commands/config.js";
 import { handleCloudSetupCommand } from "./commands/setup.js";
 import { handleCloudSyncCommand } from "./commands/sync.js";
+import { handleCloudVerifyCommand } from "./commands/verify.js";
 import { type DoctorProbeOptions, formatDoctorTable, runDoctorDiagnostics } from "./doctor.js";
 
 export interface SubcommandDefinition {
@@ -254,6 +255,10 @@ export async function routeCloudCommand(
 
   if (sub === "setup") {
     return handleCloudSetupCommand(subArgs, ctx);
+  }
+
+  if (sub === "verify") {
+    return handleCloudVerifyCommand(subArgs, ctx);
   }
 
   if (sub === "config") {

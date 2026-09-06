@@ -21,6 +21,7 @@ import { type StoredCredential, parseAuthJson, resolvePiAgentDir } from "../core
 import { executeSetup } from "../core/setup/run.js";
 import { runSetupWizard } from "../core/setup/steps.js";
 import { syncPiConfig } from "../core/sync.js";
+import { formatVerifyReport, runVerification } from "../core/verify/engine.js";
 import { formatDoctorTable, runDoctorDiagnostics } from "../extension/doctor.js";
 import { type LocalConfig, LocalConfigSchema } from "../shared/config.js";
 import { TerminalPrompter } from "./prompter-terminal.js";
@@ -468,16 +469,21 @@ export async function runCli(argv = process.argv): Promise<number> {
         const region = (parsed.flags.region as string) || (parsed.flags.r as string) || undefined;
         const withModel = parsed.flags["with-model"] !== false && !parsed.flags["no-model"];
 
-        // Run doctor diagnostics as baseline verification
-        const report = await runDoctorDiagnostics({ profile, region });
+        const report = await runVerification({
+          profile,
+          region,
+          withModel,
+          runSmoke: true,
+          simulateSmoke: true,
+        });
 
         if (jsonMode) {
-          console.log(JSON.stringify({ ...report, withModel }, null, 2));
+          console.log(JSON.stringify(report, null, 2));
         } else {
-          console.log(formatDoctorTable(report));
+          console.log(formatVerifyReport(report));
         }
 
-        return report.verdict === "BROKEN" ? 1 : 0;
+        return report.verdict === "FAIL" ? 1 : 0;
       }
 
       case "update": {
