@@ -25,3 +25,8 @@ export * from "./config-editor.js";
 export * from "./sync.js";
 export * from "./prompter.js";
 export * from "./setup/steps.js";
+export * from "./setup/run.js";
+export * from "./verify/engine.js";
+export * from "./launcher.js";
+export * from "./list.js";
+export * from "./status.js";

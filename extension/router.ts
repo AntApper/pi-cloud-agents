@@ -3,11 +3,14 @@
  */
 
 import { handleCloudConfigCommand } from "./commands/config.js";
+import { handleCloudListCommand } from "./commands/list.js";
 import { handleCloudNewCommand } from "./commands/new.js";
 import { handleCloudSetupCommand } from "./commands/setup.js";
+import { handleCloudStatusCommand } from "./commands/status.js";
 import { handleCloudSyncCommand } from "./commands/sync.js";
 import { handleCloudVerifyCommand } from "./commands/verify.js";
 import { type DoctorProbeOptions, formatDoctorTable, runDoctorDiagnostics } from "./doctor.js";
+import type { PiUiContext } from "./prompter-pi.js";
 
 export interface SubcommandDefinition {
   name: string;
@@ -196,14 +199,7 @@ export function formatHelpCatalog(): string {
   return lines.join("\n");
 }
 
-export interface RouteContext {
-  hasUI?: boolean;
-  mode?: "tui" | "rpc" | string;
-  ui?: {
-    notify?: (message: string, type?: "info" | "warning" | "error") => void;
-    setStatus?: (id: string, text: string) => void;
-  };
-}
+export type RouteContext = PiUiContext;
 
 export interface RouteResult {
   subcommand: string;
@@ -272,6 +268,14 @@ export async function routeCloudCommand(
 
   if (sub === "sync") {
     return handleCloudSyncCommand(subArgs, ctx);
+  }
+
+  if (sub === "list") {
+    return handleCloudListCommand(subArgs, ctx);
+  }
+
+  if (sub === "status") {
+    return handleCloudStatusCommand(subArgs, ctx);
   }
 
   const knownSub = CLOUD_SUBCOMMANDS.find((cmd) => cmd.name === sub);

@@ -14,9 +14,9 @@ export interface PiUiContext {
   hasUI?: boolean;
   mode?: "tui" | "rpc" | string;
   ui?: {
-    select?: <T>(title: string, options: Array<{ label: string; value: T }>) => Promise<T>;
-    confirm?: (title: string, defaultVal?: boolean) => Promise<boolean>;
-    input?: (title: string, defaultVal?: string) => Promise<string>;
+    select?: unknown;
+    confirm?: unknown;
+    input?: unknown;
     notify?: (message: string, type?: "info" | "warning" | "error") => void;
     setStatus?: (id: string, text: string) => void;
   };
@@ -30,8 +30,20 @@ export class PiPrompter implements Prompter {
   }
 
   async select<T>(message: string, options: SelectOption<T>[], defaultValue?: T): Promise<T> {
-    if (this.ctx.hasUI && this.ctx.ui?.select) {
-      return this.ctx.ui.select(message, options);
+    if (
+      this.ctx.hasUI &&
+      this.ctx.ui &&
+      typeof (this.ctx.ui as { select?: unknown }).select === "function"
+    ) {
+      const selectFn = (
+        this.ctx.ui as { select: (title: string, opts: unknown) => Promise<unknown> }
+      ).select;
+      const res = await selectFn(message, options);
+      if (res !== undefined) {
+        if (options.some((o) => o.value === res)) return res as T;
+        const match = options.find((o) => o.label === res || o.value === (res as unknown));
+        if (match) return match.value;
+      }
     }
     if (defaultValue !== undefined) return defaultValue;
     if (options.length > 0) return options[0]!.value;
@@ -44,15 +56,28 @@ export class PiPrompter implements Prompter {
   }
 
   async confirm(message: string, defaultValue = true): Promise<boolean> {
-    if (this.ctx.hasUI && this.ctx.ui?.confirm) {
-      return this.ctx.ui.confirm(message, defaultValue);
+    if (
+      this.ctx.hasUI &&
+      this.ctx.ui &&
+      typeof (this.ctx.ui as { confirm?: unknown }).confirm === "function"
+    ) {
+      const confirmFn = (
+        this.ctx.ui as { confirm: (title: string, def?: boolean) => Promise<boolean> }
+      ).confirm;
+      return confirmFn(message, defaultValue);
     }
     return defaultValue;
   }
 
   async input(message: string, options?: InputOptions): Promise<string> {
-    if (this.ctx.hasUI && this.ctx.ui?.input) {
-      const val = await this.ctx.ui.input(message, options?.defaultValue);
+    if (
+      this.ctx.hasUI &&
+      this.ctx.ui &&
+      typeof (this.ctx.ui as { input?: unknown }).input === "function"
+    ) {
+      const inputFn = (this.ctx.ui as { input: (title: string, def?: string) => Promise<string> })
+        .input;
+      const val = await inputFn(message, options?.defaultValue);
       if (options?.validate) {
         const res = await options.validate(val);
         if (typeof res === "string") throw new Error(res);
@@ -63,8 +88,13 @@ export class PiPrompter implements Prompter {
   }
 
   async password(message: string, options?: PasswordOptions): Promise<string> {
-    if (this.ctx.hasUI && this.ctx.ui?.input) {
-      const val = await this.ctx.ui.input(message);
+    if (
+      this.ctx.hasUI &&
+      this.ctx.ui &&
+      typeof (this.ctx.ui as { input?: unknown }).input === "function"
+    ) {
+      const inputFn = (this.ctx.ui as { input: (title: string) => Promise<string> }).input;
+      const val = await inputFn(message);
       if (options?.validate) {
         const res = await options.validate(val);
         if (typeof res === "string") throw new Error(res);
@@ -85,8 +115,8 @@ export class PiPrompter implements Prompter {
     task: (update: (msg: string) => void) => Promise<T>,
   ): Promise<T> {
     const update = (msg: string) => {
-      if (this.ctx.hasUI && this.ctx.ui?.setStatus) {
-        this.ctx.ui.setStatus("setup_progress", msg);
+      if (this.ctx.hasUI && this.ctx.ui?.notify) {
+        this.ctx.ui.notify(msg, "info");
       }
     };
     return task(update);
