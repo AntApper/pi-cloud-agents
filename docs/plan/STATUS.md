@@ -51,7 +51,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T3.2 | Stack deployer module | M | T3.1b | done | [docs/evidence/T3.2.md](docs/evidence/T3.2.md) |
 | T3.3 | Image manager | M | T3.2, T2.9 | done | [docs/evidence/T3.3.md](docs/evidence/T3.3.md) |
 | T3.4 | Secrets store (AWS Secrets Manager) | S/M | T1.2 | done | [docs/evidence/T3.4.md](docs/evidence/T3.4.md) |
-| T3.5 | Controller Lambda (keepalive, idle policy, janitor) | M | T2.6, T2.7, T3.1b | ready | |
+| T3.5 | Controller Lambda (keepalive, idle policy, janitor) | M | T2.6, T2.7, T3.1b | in-progress (t3.5-controller-lambda, 2026-09-06T22:58:00Z) | |
 | G3 | Gate: live infra smoke [AWS] | M | T3.2–T3.5, T2.9 | pending | |
 
 ## Phase 4 — Local extension and CLI
