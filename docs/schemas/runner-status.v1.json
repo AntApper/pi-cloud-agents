@@ -1,0 +1,63 @@
+{
+  "$ref": "#/definitions/RunnerStatus",
+  "definitions": {
+    "RunnerStatus": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uptimeSeconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "activeConnections": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastActivityAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pi": {
+          "type": "object",
+          "properties": {
+            "running": {
+              "type": "boolean"
+            },
+            "pid": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "currentSessionId": {
+              "type": "string"
+            },
+            "lastEventAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "running"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "status",
+        "runId",
+        "uptimeSeconds",
+        "activeConnections",
+        "lastActivityAt",
+        "pi"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

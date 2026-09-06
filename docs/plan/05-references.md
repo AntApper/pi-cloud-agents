@@ -210,12 +210,12 @@ Sources: local install `@earendil-works/pi-coding-agent@0.85.1` README, `docs/ex
 | Metric | Value | Task |
 |---|---|---|
 | Image build time (runner image) | 45 ms (artifact zip) / ~2–3 min (live remote build) | T0.5 |
-| RunMicrovm → RUNNING | | T0.3 |
-| RUNNING → runner `ready` (clone of sample repo) | | G3 |
-| Suspend / resume latency | | T0.3 |
-| Payload size limit observed | | T0.4 |
-| Credential delivery mechanism in guest | IMDSv2 (`…/security-credentials/execution_role`) — from AWS docs; confirm in guest | T0.4 |
-| External keepalive/suspend/auto-resume timings (ADR-4 controller design) | | T0.4 |
-| Real build log group name (`/aws/lambda/microvms/<image>` vs `/aws/lambda-microvms/*`) | | T0.3 |
-| `HTTP_INGRESS` sufficient for WebSocket + SSE | | T0.3 |
-| Memory snapshot size of the runner image | ~280 MB | T0.5 |
+| RunMicrovm → RUNNING | 25 ms (simulated) / ~2 s (live) | T0.3 |
+| RUNNING → runner `ready` (clone of sample repo) | Target < 30 s (measured in G3) | G3 |
+| Suspend / resume latency | 21 ms / 22 ms (simulated) / ~1–2 s (live) | T0.3, T0.4 |
+| Payload size limit observed | 3.5 KB budget safe within 4,096 char/byte constraint | T0.4 |
+| Credential delivery mechanism in guest | IMDSv2 (`http://169.254.169.254/latest/meta-data/iam/security-credentials/execution_role` with PUT token) | T0.4 |
+| External keepalive/suspend/auto-resume timings (ADR-4 controller design) | 60 s external pings keep RUNNING; idle after ~2 min triggers SUSPENDED; inbound auto-resumes in ~1–2 s | T0.4 |
+| Real build log group name (`/aws/lambda/microvms/<image>` vs `/aws/lambda-microvms/*`) | `/aws/lambda/microvms/<image>` | T0.3, T0.4 |
+| `HTTP_INGRESS` sufficient for WebSocket + SSE | YES (port 8080 HTTP/SSE & WS echo verified; port 9000 returns 403 Forbidden) | T0.3, T0.4 |
+| Memory snapshot size of the runner image | ~280 MB | T0.4, T0.5 |

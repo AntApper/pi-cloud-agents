@@ -14,22 +14,22 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T0.4 | Spike: guest capabilities + keepalive [AWS] | M | T0.3 | done | [docs/evidence/T0.4.md](docs/evidence/T0.4.md) |
 | T0.5 | Spike: pi headless on ARM64 + mock LLM [AWS] | M | T0.3 | done | [docs/evidence/T0.5.md](docs/evidence/T0.5.md) |
 | T0.6 | Spike: pi credential portability (API keys, OAuth) | M | T0.1 | done | [docs/evidence/T0.6.md](docs/evidence/T0.6.md) |
-| G0 | Gate: spikes complete, decisions confirmed | S | T0.2–T0.6 | pending | |
-
+| G0 | Gate: spikes complete, decisions confirmed | S | T0.2–T0.6 | passed | Phase 0 spikes complete, assumptions A1–A10 verified |
+|
 ## Phase 1 — Contracts
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T1.1 | Protocol and manifest schemas | M | G0 | todo | |
-| T1.2 | Local and per-repo config schemas + loader | S/M | T1.1 | todo | |
-| T1.3 | Runner API contract document | S | T1.1 | todo | |
-| T1.4 | pi config bundle builder (`core/pi-config`) | M | T1.1, T0.6 | todo | |
+| T1.1 | Protocol and manifest schemas | M | G0 | done | [docs/evidence/T1.1.md](docs/evidence/T1.1.md) |
+| T1.2 | Local and per-repo config schemas + loader | S/M | T1.1 | ready | |
+| T1.3 | Runner API contract document | S | T1.1 | ready | |
+| T1.4 | pi config bundle builder (`core/pi-config`) | M | T1.1, T0.6 | ready | |
 
 ## Phase 2 — Runner
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T2.1 | Lifecycle hook server | M | T1.1 | todo | |
+| T2.1 | Lifecycle hook server | M | T1.1 | ready | |
 | T2.2 | Launch payload, secrets, pi config assembly | M | T2.1, T1.4 | todo | |
 | T2.3 | Workspace preparation (git + install) | M | T2.2 | todo | |
 | T2.4 | pi process manager (RPC bridge) | M | T2.2 | todo | |
@@ -46,7 +46,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T3.1a | CloudFormation core stack | M | T1.1 | todo | |
+| T3.1a | CloudFormation core stack | M | T1.1 | ready | |
 | T3.1b | CloudFormation image stack | M | T3.1a | todo | |
 | T3.2 | Stack deployer module | M | T3.1b | todo | |
 | T3.3 | Image manager | M | T3.2, T2.9 | todo | |

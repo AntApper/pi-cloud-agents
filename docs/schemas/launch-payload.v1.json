@@ -1,0 +1,229 @@
+{
+  "$ref": "#/definitions/LaunchPayload",
+  "definitions": {
+    "LaunchPayload": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "type": "number",
+          "const": 1
+        },
+        "runId": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^run-[a-z0-9-]+$"
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stack": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "region": {
+              "type": "string",
+              "minLength": 1
+            },
+            "bucket": {
+              "type": "string",
+              "minLength": 1
+            },
+            "prefix": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "region",
+            "bucket"
+          ],
+          "additionalProperties": false
+        },
+        "repo": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "type": "string"
+            },
+            "workBranch": {
+              "type": "string",
+              "minLength": 1
+            },
+            "depth": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "url",
+            "workBranch"
+          ],
+          "additionalProperties": false
+        },
+        "model": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "thinking": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "budgetTokens": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "provider",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "piConfig": {
+          "type": "object",
+          "properties": {
+            "bundleKey": {
+              "type": "string",
+              "minLength": 1
+            },
+            "authParams": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "bedrockRole": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "bundleKey",
+            "authParams",
+            "bedrockRole"
+          ],
+          "additionalProperties": false
+        },
+        "github": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "const": "secret"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "mode",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "const": "none"
+                }
+              },
+              "required": [
+                "mode"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "installTimeoutSec": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "trustProjectConfig": {
+              "type": "boolean"
+            },
+            "idleGraceSec": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "suspendAfterIdleSec": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "terminateAfterSuspendedSec": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "autoPush": {
+              "type": "boolean"
+            },
+            "maxDurationSec": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 28800
+            }
+          },
+          "required": [
+            "installTimeoutSec",
+            "trustProjectConfig",
+            "idleGraceSec",
+            "suspendAfterIdleSec",
+            "terminateAfterSuspendedSec",
+            "autoPush",
+            "maxDurationSec"
+          ],
+          "additionalProperties": false
+        },
+        "logGroup": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "v",
+        "runId",
+        "owner",
+        "stack",
+        "repo",
+        "model",
+        "piConfig",
+        "github",
+        "options",
+        "logGroup"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
