@@ -21,3 +21,4 @@ export * from "./aws/image.js";
 export * from "./aws/clients.js";
 export * from "./aws/infra-smoke.js";
 export * from "./client/run-client.js";
+export * from "./config-editor.js";

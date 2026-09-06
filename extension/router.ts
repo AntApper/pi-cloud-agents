@@ -2,6 +2,7 @@
  * Command router and completion engine for `/cloud <sub> [args]`.
  */
 
+import { handleCloudConfigCommand } from "./commands/config.js";
 import { type DoctorProbeOptions, formatDoctorTable, runDoctorDiagnostics } from "./doctor.js";
 
 export interface SubcommandDefinition {
@@ -247,6 +248,10 @@ export async function routeCloudCommand(
       output: tableText,
       handled: true,
     };
+  }
+
+  if (sub === "config") {
+    return handleCloudConfigCommand(subArgs, ctx);
   }
 
   const knownSub = CLOUD_SUBCOMMANDS.find((cmd) => cmd.name === sub);
