@@ -7,8 +7,12 @@ import {
   detachActiveMirrorSession,
   getActiveMirrorSession,
 } from "./ui/mirror.js";
+import { registerCloudRenderers } from "./ui/renderers/cloud-entry.js";
 
 export default function (pi: ExtensionAPI): void {
+  // Register custom entry renderers for cloud mirror messages
+  registerCloudRenderers(pi);
+
   // Register input interception and abort shortcut
   registerInputHandling(pi);
 

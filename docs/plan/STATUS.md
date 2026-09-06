@@ -70,7 +70,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T4.6 | `/cloud list` and `/cloud status` detail card | M | T4.5, T2.6, T2.10, T4.1b | done | [docs/evidence/T4.6.md](docs/evidence/T4.6.md) |
 | T4.7a | Attach: mirror session core | M | T4.5, T4.6 | done | [docs/evidence/T4.7a.md](docs/evidence/T4.7a.md) |
 | T4.7b | Attach: input forwarding and controls | M | T4.7a | done | [docs/evidence/T4.7b.md](docs/evidence/T4.7b.md) |
-| T4.7c | Attach: rich renderers and remote footer | M | T4.7a | todo | |
+| T4.7c | Attach: rich renderers and remote footer | M | T4.7a | done | [docs/evidence/T4.7c.md](docs/evidence/T4.7c.md) |
 | T4.7d | Attach: durability, auto-reattach, laptop-close | M | T4.7a, T4.5 | todo | |
 | T4.8 | stop / suspend / resume / logs / pr / shell | M | T4.5 | done | [docs/evidence/T4.8.md](docs/evidence/T4.8.md) |
 | T4.9 | `cloud_agent` tool | M | T4.4, T4.6, T4.8 | ready | |
