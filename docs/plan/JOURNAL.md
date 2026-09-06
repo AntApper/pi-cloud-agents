@@ -120,6 +120,15 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t3.1a-t3.1b-t3.4-t3.2-infra · T3.1a, T3.1b, T3.4, T3.2
+- did: implemented CloudFormation core & image stacks (`infra/core.yaml`, `infra/image.yaml`), Secrets Manager store (`core/aws/secrets.ts`), and stack deployer (`core/aws/stack.ts`) with change sets, rollback diagnostics, and bucket emptying.
+- validated: `npm run check` (29 test files / 252 tests green, 0 glyph violations), full IAM security policies and no-lambda execution role verified in unit tests.
+- left: T3.1a, T3.1b, T3.4, and T3.2 complete.
+- next: start `T3.3` (Image manager) or `T3.5` (Controller Lambda).
+- aws: none
+- open: none
+
+
 
 
 
