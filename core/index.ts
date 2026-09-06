@@ -15,3 +15,4 @@ export * from "./aws/pi-headless.js";
 export * from "./credentials.js";
 export * from "./config.js";
 export * from "./pi-config.js";
+export * from "./aws/secrets.js";
