@@ -96,13 +96,14 @@ Entry template:
 - aws: none
 - open: none
 
-## 2026-09-06 · t1.4-bundle · T1.4
-- did: implemented `core/pi-config.ts` (`buildBundle` & `assemblePiAgentDir`), deterministic USTAR tar builder/extractor, settings sanitizer, OAuth opt-in filtering, and zero-secrets bundle security scan.
-- validated: `npm run check` (115 tests green, 0 glyph violations).
-- left: T1.4 complete; all Phase 1 tasks (T1.1–T1.4) are done.
-- next: start Phase 2 tasks: `T2.1` (lifecycle hook server) or `T2.2` (launch payload, secrets, pi config assembly).
+## 2026-09-06 · t2.1-t2.2-runner · T2.1, T2.2
+- did: implemented MicroVM lifecycle hook server (`runner/hooks.ts`), structured logger with deep secret redaction (`runner/logger.ts`), secrets and storage providers (`runner/secrets.ts`, `runner/storage.ts`), and in-VM pi environment assembler (`runner/pi-config.ts`).
+- validated: `npm run check` (155 tests green across 18 files, 0 glyph violations).
+- left: T2.1 and T2.2 complete. T2.3, T2.4, and T2.6 unblocked and ready.
+- next: start `T2.3` (workspace preparation: git + install), `T2.4` (pi process manager RPC bridge), or `T2.6` (run state machine and persistence).
 - aws: none
 - open: none
+
 
 
 
