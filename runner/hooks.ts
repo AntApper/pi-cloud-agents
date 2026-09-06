@@ -14,6 +14,7 @@ import fs from "node:fs";
 import http from "node:http";
 import { promisify } from "node:util";
 import { type LaunchPayload, ProtocolErrorCode, decodeLaunchPayload } from "../shared/protocol.js";
+import type { Logger } from "./logger.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -60,12 +61,14 @@ export interface HookServerOptions {
     suspend?: number;
     terminate?: number;
   };
-  logger?: {
-    debug?: (...args: unknown[]) => void;
-    info?: (...args: unknown[]) => void;
-    warn?: (...args: unknown[]) => void;
-    error?: (...args: unknown[]) => void;
-  };
+  logger?:
+    | Logger
+    | {
+        debug?: (...args: unknown[]) => void;
+        info?: (...args: unknown[]) => void;
+        warn?: (...args: unknown[]) => void;
+        error?: (...args: unknown[]) => void;
+      };
 }
 
 /**

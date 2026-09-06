@@ -714,21 +714,19 @@ export class RunnerApiServer {
   }
 
   private async handlePostShutdown(res: http.ServerResponse): Promise<void> {
-    if (this.options.onShutdown) {
-      try {
-        await this.options.onShutdown();
-      } catch (err) {
-        this.sendJson(res, 500, {
-          error: {
-            code: ProtocolErrorCode.INTERNAL_ERROR,
-            message: `Shutdown failed: ${err instanceof Error ? err.message : String(err)}`,
-          },
-        });
-        return;
-      }
-    }
-
     this.sendJson(res, 200, { status: "shutting_down" });
+
+    if (this.options.onShutdown) {
+      setImmediate(async () => {
+        try {
+          await this.options.onShutdown?.();
+        } catch (err) {
+          this.logger?.error?.(
+            `Shutdown execution error: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      });
+    }
   }
 
   private readBody(req: http.IncomingMessage, res: http.ServerResponse): Promise<string | null> {

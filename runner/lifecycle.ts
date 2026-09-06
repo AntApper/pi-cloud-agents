@@ -9,7 +9,7 @@ import { execFile } from "node:child_process";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import { promisify } from "node:util";
-import type { LaunchPayload } from "../shared/protocol.js";
+import type { LaunchPayload, RunStatus } from "../shared/protocol.js";
 import type { Logger } from "./logger.js";
 import type { PiProcessManager } from "./pi-process.js";
 import type { RunStateMachine } from "./state.js";
@@ -108,6 +108,7 @@ export class LifecyclePolicyManager extends EventEmitter {
   private attachedClients = new Map<string, number>(); // clientId -> lastSeenTime
   private checkpointIndex = 1;
   private maxDurationWarningEmitted = false;
+  private commitLock: Promise<unknown> = Promise.resolve();
 
   constructor(
     stateMachine: RunStateMachine,
@@ -373,79 +374,90 @@ export class LifecyclePolicyManager extends EventEmitter {
       return false;
     }
 
-    const runGit = async (
-      args: string[],
-      timeout = 10000,
-    ): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
-      if (this.customGitRunner) {
-        return this.customGitRunner(args, this.repoPath, timeout);
+    const run = async (): Promise<boolean> => {
+      const runGit = async (
+        args: string[],
+        timeout = 10000,
+      ): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
+        if (this.customGitRunner) {
+          return this.customGitRunner(args, this.repoPath, timeout);
+        }
+        try {
+          const res = await execFileAsync("git", args, {
+            cwd: this.repoPath,
+            timeout,
+          });
+          return { stdout: res.stdout, stderr: res.stderr, exitCode: 0 };
+        } catch (err: unknown) {
+          const error = err as {
+            stdout?: string;
+            stderr?: string;
+            code?: number;
+            message?: string;
+          };
+          return {
+            stdout: error.stdout || "",
+            stderr: error.stderr || error.message || String(err),
+            exitCode: typeof error.code === "number" ? error.code : 1,
+          };
+        }
+      };
+
+      // 1. Check status for uncommitted changes
+      const statusRes = await runGit(["status", "--porcelain"]);
+      if (!statusRes.stdout.trim()) {
+        // Clean working tree
+        return false;
       }
-      try {
-        const res = await execFileAsync("git", args, {
-          cwd: this.repoPath,
-          timeout,
-        });
-        return { stdout: res.stdout, stderr: res.stderr, exitCode: 0 };
-      } catch (err: unknown) {
-        const error = err as { stdout?: string; stderr?: string; code?: number; message?: string };
-        return {
-          stdout: error.stdout || "",
-          stderr: error.stderr || error.message || String(err),
-          exitCode: typeof error.code === "number" ? error.code : 1,
-        };
+
+      // 2. Stage all modifications
+      await runGit(["add", "-A"]);
+
+      // 3. Create commit
+      const commitMsg = `pi-cloud: ${message}`;
+      const commitRes = await runGit(["commit", "-m", commitMsg]);
+      if (commitRes.exitCode !== 0 && !commitRes.stdout.includes("nothing to commit")) {
+        this.logger?.warn?.(`Git commit failed: ${commitRes.stderr}`);
+        return false;
       }
+
+      this.checkpointIndex++;
+
+      // 4. Update manifest with commit hash
+      const headRes = await runGit(["rev-parse", "HEAD"]);
+      const lastCommit = headRes.stdout.trim();
+      if (lastCommit) {
+        await this.stateMachine.updateGit({ lastCommit });
+      }
+
+      // 5. Optional autoPush with bounded timeout
+      if (this.autoPush) {
+        const workBranch = this.stateMachine.getManifest().repo.workBranch;
+        this.logger?.info?.(
+          `Pushing work branch '${workBranch}' to origin (timeout: ${this.pushTimeoutMs}ms)`,
+        );
+        const pushRes = await runGit(["push", "origin", workBranch], this.pushTimeoutMs);
+        if (pushRes.exitCode !== 0) {
+          this.logger?.warn?.(`Git push failed (will retry next turn): ${pushRes.stderr}`);
+        }
+      }
+
+      // 6. Flush session and manifest
+      await this.stateMachine.flushSession();
+      await this.stateMachine.persistManifest();
+
+      this.emit("checkpoint_committed", {
+        index: this.checkpointIndex - 1,
+        lastCommit,
+        message: commitMsg,
+      });
+
+      return true;
     };
 
-    // 1. Check status for uncommitted changes
-    const statusRes = await runGit(["status", "--porcelain"]);
-    if (!statusRes.stdout.trim()) {
-      // Clean working tree
-      return false;
-    }
-
-    // 2. Stage all modifications
-    await runGit(["add", "-A"]);
-
-    // 3. Create commit
-    const commitMsg = `pi-cloud: ${message}`;
-    const commitRes = await runGit(["commit", "-m", commitMsg]);
-    if (commitRes.exitCode !== 0 && !commitRes.stdout.includes("nothing to commit")) {
-      this.logger?.warn?.(`Git commit failed: ${commitRes.stderr}`);
-      return false;
-    }
-
-    this.checkpointIndex++;
-
-    // 4. Update manifest with commit hash
-    const headRes = await runGit(["rev-parse", "HEAD"]);
-    const lastCommit = headRes.stdout.trim();
-    if (lastCommit) {
-      await this.stateMachine.updateGit({ lastCommit });
-    }
-
-    // 5. Optional autoPush with bounded timeout
-    if (this.autoPush) {
-      const workBranch = this.stateMachine.getManifest().repo.workBranch;
-      this.logger?.info?.(
-        `Pushing work branch '${workBranch}' to origin (timeout: ${this.pushTimeoutMs}ms)`,
-      );
-      const pushRes = await runGit(["push", "origin", workBranch], this.pushTimeoutMs);
-      if (pushRes.exitCode !== 0) {
-        this.logger?.warn?.(`Git push failed (will retry next turn): ${pushRes.stderr}`);
-      }
-    }
-
-    // 6. Flush session and manifest
-    await this.stateMachine.flushSession();
-    await this.stateMachine.persistManifest();
-
-    this.emit("checkpoint_committed", {
-      index: this.checkpointIndex - 1,
-      lastCommit,
-      message: commitMsg,
-    });
-
-    return true;
+    const next = this.commitLock.then(run, run);
+    this.commitLock = next;
+    return next;
   }
 
   /**
@@ -482,6 +494,29 @@ export class LifecyclePolicyManager extends EventEmitter {
     }
 
     await this.stateMachine.transitionTo("terminated", "MicroVM terminated by hypervisor");
+  }
+
+  /**
+   * Finalizes the run by committing WIP changes, pushing, and transitioning to a terminal state.
+   */
+  public async finalize(status: RunStatus = "completed", reason = "Run finalized"): Promise<void> {
+    this.logger?.info?.(`Finalizing run with status '${status}': ${reason}`);
+    try {
+      await this.autoCommitWip(`final checkpoint: ${reason}`);
+    } catch (err) {
+      this.logger?.warn?.(
+        `Final WIP commit failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    await this.stateMachine.transitionTo(status, reason);
+  }
+
+  /**
+   * Creates an explicit checkpoint commit.
+   */
+  public async createCheckpointCommit(message?: string): Promise<boolean> {
+    return this.autoCommitWip(message);
   }
 
   /**

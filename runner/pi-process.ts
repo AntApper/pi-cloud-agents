@@ -126,7 +126,7 @@ export class PiProcessManager extends EventEmitter {
 
   private buildCommandLineArgs(): { command: string; args: string[] } {
     const piBinary = this.options.piBinary ?? "pi";
-    const args: string[] = ["--mode", "rpc"];
+    const args: string[] = ["--no-extensions", "--mode", "rpc"];
 
     if (this.currentSessionFile && fs.existsSync(this.currentSessionFile)) {
       args.push("--session", this.currentSessionFile);
