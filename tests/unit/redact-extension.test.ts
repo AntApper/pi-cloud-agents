@@ -2,6 +2,7 @@
  * Unit tests for In-VM Secret Redaction Extension and Transcript Sanitizer (T5.1).
  */
 
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 import redactExtension, {
   parseRedactionEnv,
@@ -177,21 +178,33 @@ describe("T5.1 In-VM Secret Redaction Extension", () => {
         GITHUB_TOKEN: testSecret,
       });
 
+      interface RedactResultPatch {
+        content?: Array<{ type?: string; text?: string }>;
+        details?: { stdout?: string };
+        message?: { content?: Array<{ type: string; text: string }> };
+      }
+
       const registeredHandlers: Record<
         string,
-        (event: Record<string, unknown>) => Promise<{ content?: unknown[]; details?: unknown; message?: { content?: Array<{ type: string; text: string }> } } | undefined>
+        (event: Record<string, unknown>) => Promise<RedactResultPatch | undefined>
       > = {};
-      const fakePi: unknown = {
-        on: vi.fn((event: string, handler: (event: Record<string, unknown>) => Promise<any>) => {
+      const fakeOn = vi.fn(
+        (
+          event: string,
+          handler: (event: Record<string, unknown>) => Promise<RedactResultPatch | undefined>,
+        ) => {
           registeredHandlers[event] = handler;
-        }),
+        },
+      );
+      const fakePi = {
+        on: fakeOn,
       };
 
       try {
-        redactExtension(fakePi as any);
+        redactExtension(fakePi as unknown as ExtensionAPI);
 
-        expect((fakePi as any).on).toHaveBeenCalledWith("tool_result", expect.any(Function));
-        expect((fakePi as any).on).toHaveBeenCalledWith("message_end", expect.any(Function));
+        expect(fakeOn).toHaveBeenCalledWith("tool_result", expect.any(Function));
+        expect(fakeOn).toHaveBeenCalledWith("message_end", expect.any(Function));
 
         // Test tool_result redaction
         const toolResultHandler = registeredHandlers.tool_result;
@@ -214,10 +227,10 @@ describe("T5.1 In-VM Secret Redaction Extension", () => {
           ? await toolResultHandler(toolResultEvent)
           : undefined;
         expect(resultPatch).toBeDefined();
-        expect(((resultPatch as any)?.content as any[])[0].text).toBe(
+        expect(resultPatch?.content?.[0]?.text).toBe(
           "echo $GITHUB_TOKEN output: [REDACTED:GITHUB_TOKEN]",
         );
-        expect(((resultPatch as any)?.details as any).stdout).toBe("Raw output: [REDACTED:GITHUB_TOKEN]");
+        expect(resultPatch?.details?.stdout).toBe("Raw output: [REDACTED:GITHUB_TOKEN]");
 
         // Test message_end redaction
         const messageEndHandler = registeredHandlers.message_end;
@@ -238,7 +251,7 @@ describe("T5.1 In-VM Secret Redaction Extension", () => {
           ? await messageEndHandler(messageEndEvent)
           : undefined;
         expect(messagePatch).toBeDefined();
-        expect((messagePatch as any)?.message?.content?.[0]?.text).toBe(
+        expect(messagePatch?.message?.content?.[0]?.text).toBe(
           "I executed the command with secret [REDACTED:GITHUB_TOKEN]",
         );
       } finally {

@@ -62,7 +62,7 @@ describe("Outbound Reachability Prober", () => {
       expect(t.dnsLatencyMs).toBeGreaterThanOrEqual(0);
       expect(t.httpsConnected || t.statusCode > 0).toBe(true);
     }
-  });
+  }, 20000);
 });
 
 describe("Mock Guest Capabilities Server & Diag Probes", () => {

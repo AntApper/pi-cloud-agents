@@ -4,17 +4,16 @@
  * retrieve execution results, steer running agents, or terminate runs.
  */
 
-import { StringEnum } from "@earendil-works/pi-ai";
 import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+import { AwsClientFactory } from "../../core/aws/clients.js";
+import { RunClient } from "../../core/client/run-client.js";
+import { loadLocalConfig } from "../../core/config.js";
 import { stopCloudRun } from "../../core/controls.js";
 import { launchCloudRun } from "../../core/launcher.js";
 import { fetchRunStatusDetails } from "../../core/status.js";
 import { GLYPHS } from "../ui/kit.js";
-import { loadLocalConfig } from "../../core/config.js";
-import { AwsClientFactory } from "../../core/aws/clients.js";
-import { RunClient } from "../../core/client/run-client.js";
 
 export const DEFAULT_MAX_TOOL_BYTES = 50 * 1024; // 50 KB
 export const DEFAULT_MAX_TOOL_LINES = 2000;
@@ -113,7 +112,8 @@ export const CloudAgentToolParams = Type.Object({
   ),
   wait: Type.Optional(
     Type.Boolean({
-      description: "For 'result' action: wait for agent to complete before returning (default: false)",
+      description:
+        "For 'result' action: wait for agent to complete before returning (default: false)",
     }),
   ),
   timeoutSeconds: Type.Optional(
@@ -207,14 +207,14 @@ export async function executeCloudAgentTool(
       });
 
       const text = [
-        `Cloud agent launched successfully.`,
+        "Cloud agent launched successfully.",
         `Run ID: ${launchResult.runId}`,
         `Branch: ${launchResult.manifest.repo.workBranch}`,
         `Repository: ${launchResult.manifest.repo.url}`,
         `Model: ${launchResult.manifest.model.provider}/${launchResult.manifest.model.id}`,
         `State: ${launchResult.manifest.status}`,
-        ``,
-        `Next steps:`,
+        "",
+        "Next steps:",
         `- Check progress: cloud_agent(action="status", runId="${launchResult.runId}")`,
         `- Get result: cloud_agent(action="result", runId="${launchResult.runId}")`,
       ].join("\n");
@@ -311,7 +311,7 @@ export async function executeCloudAgentTool(
       }
 
       const lines: string[] = [
-        `--- Cloud Agent Execution Report ---`,
+        "--- Cloud Agent Execution Report ---",
         `Run ID: ${status.runId}`,
         `Status: ${status.status}`,
         `Branch: ${status.repo.workBranch}`,
@@ -332,9 +332,9 @@ export async function executeCloudAgentTool(
         (completedStep as unknown as { detail?: string })?.detail ||
         (status.manifest as unknown as { results?: { summary?: string } })?.results?.summary;
       if (summary) {
-        lines.push(``, `Summary:`, summary);
+        lines.push("", "Summary:", summary);
       } else {
-        lines.push(``, `Latest Activity: ${status.activity.description}`);
+        lines.push("", `Latest Activity: ${status.activity.description}`);
       }
 
       const fullOutput = lines.join("\n");
@@ -392,8 +392,14 @@ export async function executeCloudAgentTool(
       ) {
         try {
           const config = loadLocalConfig();
-          const factory = new AwsClientFactory(config);
-          const microvmsClient = factory.getLambdaMicrovmsClient(config.aws.region, config.aws.profile);
+          const factory = new AwsClientFactory({
+            region: config.aws.region,
+            profile: config.aws.profile,
+          });
+          const microvmsClient = factory.getLambdaMicrovmsClient({
+            region: config.aws.region,
+            profile: config.aws.profile,
+          });
           const runClient = new RunClient({
             endpoint: status.manifest.endpoint,
             microvmIdentifier: status.manifest.microvmId,
@@ -471,6 +477,10 @@ export async function executeCloudAgentTool(
  * Registers the `cloud_agent` tool on the pi extension API.
  */
 export function registerCloudAgentTool(pi: ExtensionAPI): void {
+  if (typeof pi.registerTool !== "function") {
+    return;
+  }
+
   pi.registerTool({
     name: "cloud_agent",
     label: "Cloud Agent",
@@ -521,7 +531,9 @@ export function registerCloudAgentTool(pi: ExtensionAPI): void {
         );
       }
       if (action === "result" && details.runId) {
-        return new Text(`${GLYPHS.pass} Result for ${(details.runId as string).slice(0, 8)}: ${details.status}`);
+        return new Text(
+          `${GLYPHS.pass} Result for ${(details.runId as string).slice(0, 8)}: ${details.status}`,
+        );
       }
       if (action === "stop" && details.runId) {
         return new Text(`${GLYPHS.idle} Stopped ${(details.runId as string).slice(0, 8)}`);

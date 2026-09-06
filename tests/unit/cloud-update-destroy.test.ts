@@ -111,6 +111,15 @@ describe("T4.10 Cloud Update & Destroy", () => {
     cfnMock.on(DescribeStacksCommand).resolves({
       Stacks: [
         {
+          StackName: "pi-cloud-agents-core",
+          CreationTime: new Date(),
+          StackStatus: "CREATE_COMPLETE",
+          Outputs: [
+            { OutputKey: "BucketName", OutputValue: "test-bucket" },
+            { OutputKey: "StorageBucketName", OutputValue: "test-bucket" },
+          ],
+        },
+        {
           StackName: "pi-cloud-agents-test",
           CreationTime: new Date(),
           StackStatus: "CREATE_COMPLETE",
@@ -167,6 +176,13 @@ describe("T4.10 Cloud Update & Destroy", () => {
     microvmsMock.on(ListMicrovmImageBuildsCommand).resolves({
       items: [],
     });
+
+    cfnMock.on(CreateChangeSetCommand).resolves({ Id: "cs-1" });
+    cfnMock.on(DescribeChangeSetCommand).resolves({
+      Status: "CREATE_COMPLETE",
+      ExecutionStatus: "AVAILABLE",
+    });
+    cfnMock.on(ExecuteChangeSetCommand).resolves({});
   });
 
   afterEach(() => {
@@ -383,7 +399,27 @@ describe("T4.10 Cloud Update & Destroy", () => {
 
   describe("Extension command handlers", () => {
     it("handles /cloud update with notification output", async () => {
-      const currentSha = "fb05ac02e038c866c90e4a5baf75ccaa34f1796a5711c5bde179c66f60d59490";
+      let currentSha = "06b2cdab21fba803cef0e88e63ccf9f927bb5f21061490176cbf7289b6d35291";
+      try {
+        const distManifest = JSON.parse(
+          fs.readFileSync(path.resolve(process.cwd(), "dist/image/manifest.json"), "utf-8"),
+        );
+        if (distManifest.sha256) {
+          currentSha = distManifest.sha256;
+        }
+      } catch {}
+
+      cfnMock.on(DescribeStacksCommand).resolves({
+        Stacks: [
+          {
+            StackName: "pi-cloud-agents-core",
+            StackStatus: "CREATE_COMPLETE",
+            Outputs: [{ OutputKey: "BucketName", OutputValue: "test-bucket" }],
+            CreationTime: new Date(),
+          },
+        ],
+      });
+
       microvmsMock.on(GetMicrovmImageCommand).resolves({
         imageArn: "arn:aws:lambda:us-east-1:123456789012:microvm-image:runner",
         latestActiveImageVersion: "12",

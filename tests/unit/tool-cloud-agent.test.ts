@@ -7,15 +7,22 @@
 import { CloudFormationClient, DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
 import {
   GetMicrovmCommand,
+  type GetMicrovmCommandOutput,
   LambdaMicrovmsClient,
   TerminateMicrovmCommand,
 } from "@aws-sdk/client-lambda-microvms";
-import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  GetObjectCommand,
+  type GetObjectCommandOutput,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as launcherModule from "../../core/launcher.js";
 import {
+  type CloudAgentAction,
   executeCloudAgentTool,
   registerCloudAgentTool,
   truncateToolOutput,
@@ -93,7 +100,7 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
     });
 
     s3Mock.on(GetObjectCommand).resolves({
-      Body: mockS3Body(JSON.stringify(activeManifest)) as any,
+      Body: mockS3Body(JSON.stringify(activeManifest)) as unknown as GetObjectCommandOutput["Body"],
     });
 
     s3Mock.on(PutObjectCommand).resolves({});
@@ -103,7 +110,7 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
       memorySizeInMib: 2048,
       vcpuCount: 2,
       createdAt: new Date("2026-09-06T12:00:00.000Z"),
-    } as any);
+    } as unknown as GetMicrovmCommandOutput);
   });
 
   describe("truncateToolOutput", () => {
@@ -217,7 +224,9 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
       };
 
       s3Mock.on(GetObjectCommand).resolves({
-        Body: mockS3Body(JSON.stringify(completedManifest)) as any,
+        Body: mockS3Body(
+          JSON.stringify(completedManifest),
+        ) as unknown as GetObjectCommandOutput["Body"],
       });
 
       const result = await executeCloudAgentTool("call-4", {
@@ -267,7 +276,7 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
 
     it("handles unknown action error", async () => {
       const result = await executeCloudAgentTool("call-8", {
-        action: "invalid_action" as any,
+        action: "invalid_action" as unknown as CloudAgentAction,
       });
       expect(result.details.error).toBe("INVALID_ACTION");
       expect(result.content[0]?.text).toContain("Error: Unknown action");
@@ -276,37 +285,54 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
 
   describe("registerCloudAgentTool on ExtensionAPI", () => {
     it("registers tool with description, promptGuidelines, and renderers", () => {
-      let registeredTool: any = null;
+      let registeredTool: {
+        name?: string;
+        label?: string;
+        promptSnippet?: string;
+        promptGuidelines?: string[];
+        renderCall?: (args: unknown) => { text: string };
+        renderResult?: (result: unknown) => { text: string };
+      } | null = null;
 
       const mockPi: Partial<ExtensionAPI> = {
-        registerTool: (tool: any) => {
-          registeredTool = tool;
+        registerTool: (tool: unknown) => {
+          registeredTool = tool as typeof registeredTool;
         },
       };
 
       registerCloudAgentTool(mockPi as ExtensionAPI);
 
       expect(registeredTool).not.toBeNull();
-      expect(registeredTool.name).toBe("cloud_agent");
-      expect(registeredTool.label).toBe("Cloud Agent");
-      expect(registeredTool.promptSnippet).toBe("Delegate coding tasks to an isolated AWS MicroVM cloud agent");
-      expect(registeredTool.promptGuidelines).toBeInstanceOf(Array);
-      expect(registeredTool.promptGuidelines[0]).toContain("Use cloud_agent to delegate");
+      expect(registeredTool!.name).toBe("cloud_agent");
+      expect(registeredTool!.label).toBe("Cloud Agent");
+      expect(registeredTool!.promptSnippet).toBe(
+        "Delegate coding tasks to an isolated AWS MicroVM cloud agent",
+      );
+      expect(registeredTool!.promptGuidelines).toBeInstanceOf(Array);
+      expect(registeredTool!.promptGuidelines![0]).toContain("Use cloud_agent to delegate");
 
       // Verify renderCall
-      const renderedCallLaunch = registeredTool.renderCall({ action: "launch", prompt: "Test task" });
-      expect(renderedCallLaunch.text).toContain(`cloud_agent ${GLYPHS.arrowRight} launch: "Test task"`);
+      const renderedCallLaunch = registeredTool!.renderCall!({
+        action: "launch",
+        prompt: "Test task",
+      });
+      expect(renderedCallLaunch.text).toContain(
+        `cloud_agent ${GLYPHS.arrowRight} launch: "Test task"`,
+      );
 
-      const renderedCallStatus = registeredTool.renderCall({ action: "status", runId: "run-20260906-7f3a2c" });
+      const renderedCallStatus = registeredTool!.renderCall!({
+        action: "status",
+        runId: "run-20260906-7f3a2c",
+      });
       expect(renderedCallStatus.text).toContain(`cloud_agent ${GLYPHS.arrowRight} status run-2026`);
 
       // Verify renderResult
-      const renderedResultLaunch = registeredTool.renderResult({
+      const renderedResultLaunch = registeredTool!.renderResult!({
         details: { action: "launch", runId: "run-20260906-7f3a2c", branch: "pi-cloud/7f3a2c" },
       });
       expect(renderedResultLaunch.text).toContain("Launched cloud run");
 
-      const renderedResultResult = registeredTool.renderResult({
+      const renderedResultResult = registeredTool!.renderResult!({
         details: { action: "result", runId: "run-20260906-7f3a2c", status: "completed" },
       });
       expect(renderedResultResult.text).toContain("Result for run-2026: completed");

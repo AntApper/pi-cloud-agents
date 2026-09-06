@@ -8,16 +8,7 @@
  * and common sensitive credential environment variables.
  */
 
-import type {
-  AgentMessage,
-  ExtensionAPI,
-  ImageContent,
-  MessageEndEvent,
-  MessageEndEventResult,
-  TextContent,
-  ToolResultEvent,
-  ToolResultEventResult,
-} from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { maskAccountId } from "../../core/aws/mask.js";
 
 export interface RedactionRule {
@@ -235,21 +226,14 @@ export default function (pi: ExtensionAPI): void {
     // 1. Intercept tool_result events
     untypedPi.on(
       "tool_result",
-      async (
-        event: Record<string, unknown>,
-      ): Promise<Record<string, unknown> | undefined> => {
+      async (event: Record<string, unknown>): Promise<Record<string, unknown> | undefined> => {
         let modified = false;
         let newContent = event.content;
         let newDetails = event.details;
 
         if (event.content && Array.isArray(event.content)) {
           newContent = event.content.map((block) => {
-            if (
-              block &&
-              typeof block === "object" &&
-              "type" in block &&
-              block.type === "text"
-            ) {
+            if (block && typeof block === "object" && "type" in block && block.type === "text") {
               const textVal = (block as { text?: string }).text;
               if (typeof textVal === "string") {
                 const redacted = redactText(textVal, rules);
@@ -281,9 +265,7 @@ export default function (pi: ExtensionAPI): void {
     // 2. Intercept message_end events
     untypedPi.on(
       "message_end",
-      async (
-        event: Record<string, unknown>,
-      ): Promise<Record<string, unknown> | undefined> => {
+      async (event: Record<string, unknown>): Promise<Record<string, unknown> | undefined> => {
         if (event.message) {
           const redactedMsg = redactObject(event.message, rules);
           return {
