@@ -20,6 +20,7 @@ import {
 } from "../shared/protocol.js";
 import type { Logger } from "./logger.js";
 import type { MetricsCollector } from "./metrics.js";
+import { redactObject } from "./pi-extensions/redact.js";
 import type { PiProcessManager } from "./pi-process.js";
 import type { RunStateMachine } from "./state.js";
 import { WebSocketRpcBridge } from "./ws-rpc.js";
@@ -504,9 +505,10 @@ export class RunnerApiServer {
   private writeSseFrame(res: http.ServerResponse, event: Record<string, unknown>): void {
     if (res.writableEnded || res.destroyed) return;
 
-    const id = (event.id as string) || (event.entryId as string) || `evt-${Date.now()}`;
-    const type = (event.type as string) || "message";
-    const data = JSON.stringify(event);
+    const sanitized = redactObject(event);
+    const id = (sanitized.id as string) || (sanitized.entryId as string) || `evt-${Date.now()}`;
+    const type = (sanitized.type as string) || "message";
+    const data = JSON.stringify(sanitized);
 
     res.write(`id: ${id}\nevent: ${type}\ndata: ${data}\n\n`);
   }
@@ -771,7 +773,8 @@ export class RunnerApiServer {
   private sendJson(res: http.ServerResponse, statusCode: number, data: unknown): void {
     if (res.headersSent || res.writableEnded) return;
 
-    const body = JSON.stringify(data, null, 2);
+    const sanitized = redactObject(data);
+    const body = JSON.stringify(sanitized, null, 2);
     res.writeHead(statusCode, {
       "Content-Type": "application/json; charset=utf-8",
       "Content-Length": Buffer.byteLength(body, "utf8"),

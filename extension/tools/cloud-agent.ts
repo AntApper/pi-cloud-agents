@@ -5,13 +5,16 @@
  */
 
 import { StringEnum } from "@earendil-works/pi-ai";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { AgentToolResult, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import { stopCloudRun } from "../../core/controls.js";
 import { launchCloudRun } from "../../core/launcher.js";
-import { getRunStatus } from "../../core/status.js";
+import { fetchRunStatusDetails } from "../../core/status.js";
 import { GLYPHS } from "../ui/kit.js";
+import { loadLocalConfig } from "../../core/config.js";
+import { AwsClientFactory } from "../../core/aws/clients.js";
+import { RunClient } from "../../core/client/run-client.js";
 
 export const DEFAULT_MAX_TOOL_BYTES = 50 * 1024; // 50 KB
 export const DEFAULT_MAX_TOOL_LINES = 2000;
@@ -52,7 +55,7 @@ export function truncateToolOutput(
   }
 
   // Truncate by lines first
-  let truncatedLines = lines.slice(0, maxLines);
+  const truncatedLines = lines.slice(0, maxLines);
   let truncatedText = truncatedLines.join("\n");
 
   // Then truncate by bytes if still exceeding
@@ -79,8 +82,9 @@ export const CloudAgentActionEnum = ["launch", "status", "result", "steer", "sto
 export type CloudAgentAction = (typeof CloudAgentActionEnum)[number];
 
 export const CloudAgentToolParams = Type.Object({
-  action: StringEnum(CloudAgentActionEnum, {
-    description: "Action to perform: launch a new run, check status, get final result, steer, or stop a run",
+  action: Type.String({
+    description:
+      "Action to perform: launch a new run, check status, get final result, steer, or stop a run (launch | status | result | steer | stop)",
   }),
   prompt: Type.Optional(
     Type.String({
@@ -136,13 +140,31 @@ export interface ToolExecutionContext {
 }
 
 /**
+ * Parses model string into provider and model ID if formatted as "provider/modelId".
+ */
+export function parseModelOption(modelStr?: string): { provider: string; id: string } | undefined {
+  if (!modelStr) return undefined;
+  const slashIdx = modelStr.indexOf("/");
+  if (slashIdx !== -1) {
+    return {
+      provider: modelStr.slice(0, slashIdx),
+      id: modelStr.slice(slashIdx + 1),
+    };
+  }
+  return {
+    provider: "anthropic",
+    id: modelStr,
+  };
+}
+
+/**
  * Executes the cloud_agent tool logic.
  */
 export async function executeCloudAgentTool(
   _toolCallId: string,
   params: CloudAgentToolParamsType,
   signal?: AbortSignal,
-  onUpdate?: (update: { content: Array<{ type: "text"; text: string }> }) => void,
+  onUpdate?: (partialResult: AgentToolResult<unknown>) => void,
   ctx?: ToolExecutionContext,
 ): Promise<{
   content: Array<{ type: "text"; text: string }>;
@@ -173,12 +195,14 @@ export async function executeCloudAgentTool(
 
       onUpdate?.({
         content: [{ type: "text", text: "Launching cloud agent in MicroVM..." }],
+        details: { step: "launching" },
       });
 
+      const parsedModel = parseModelOption(params.model);
       const launchResult = await launchCloudRun({
         prompt: params.prompt,
-        model: params.model,
-        baseBranch: params.branch,
+        model: parsedModel,
+        workBranch: params.branch,
         repoDir: ctx?.cwd || process.cwd(),
       });
 
@@ -188,7 +212,7 @@ export async function executeCloudAgentTool(
         `Branch: ${launchResult.manifest.repo.workBranch}`,
         `Repository: ${launchResult.manifest.repo.url}`,
         `Model: ${launchResult.manifest.model.provider}/${launchResult.manifest.model.id}`,
-        `State: ${launchResult.state}`,
+        `State: ${launchResult.manifest.status}`,
         ``,
         `Next steps:`,
         `- Check progress: cloud_agent(action="status", runId="${launchResult.runId}")`,
@@ -202,8 +226,8 @@ export async function executeCloudAgentTool(
           runId: launchResult.runId,
           branch: launchResult.manifest.repo.workBranch,
           repository: launchResult.manifest.repo.url,
-          state: launchResult.state,
-          microvmId: launchResult.manifest.microvm?.microvmId,
+          state: launchResult.manifest.status,
+          microvmId: launchResult.microvmId,
         },
       };
     }
@@ -221,7 +245,7 @@ export async function executeCloudAgentTool(
         };
       }
 
-      const status = await getRunStatus(params.runId);
+      const status = await fetchRunStatusDetails(params.runId);
 
       const text = [
         `Run: ${status.shortRunId} (${status.runId})`,
@@ -258,18 +282,29 @@ export async function executeCloudAgentTool(
         };
       }
 
-      let status = await getRunStatus(params.runId);
+      let status = await fetchRunStatusDetails(params.runId);
 
       // If wait is requested and run is still in active/running state, poll with timeout
-      if (params.wait && (status.status === "RUNNING" || status.status === "running" || status.status === "launching")) {
+      if (
+        params.wait &&
+        (status.status === "RUNNING" ||
+          status.status === "running" ||
+          status.status === "launching" ||
+          status.status === "provisioning")
+      ) {
         const timeoutMs = (params.timeoutSeconds ?? 60) * 1000;
         const startTime = Date.now();
 
         while (Date.now() - startTime < timeoutMs) {
           if (signal?.aborted) break;
           await new Promise((resolve) => setTimeout(resolve, 2000));
-          status = await getRunStatus(params.runId);
-          if (status.status !== "RUNNING" && status.status !== "running" && status.status !== "launching") {
+          status = await fetchRunStatusDetails(params.runId);
+          if (
+            status.status !== "RUNNING" &&
+            status.status !== "running" &&
+            status.status !== "launching" &&
+            status.status !== "provisioning"
+          ) {
             break;
           }
         }
@@ -285,8 +320,19 @@ export async function executeCloudAgentTool(
         `Tokens: ${status.tokens.total} · Cost: ${status.tokens.cost} · Turns: ${status.counters.turns}`,
       ];
 
-      if (status.manifest?.results?.summary) {
-        lines.push(``, `Summary:`, status.manifest.results.summary);
+      if (status.manifest?.git?.prUrl) {
+        lines.push(`PR URL: ${status.manifest.git.prUrl}`);
+      }
+
+      const completedStep = status.manifest?.timeline?.find(
+        (t) => t.status === "completed" || t.status === "failed",
+      );
+      const summary =
+        completedStep?.reason ||
+        (completedStep as unknown as { detail?: string })?.detail ||
+        (status.manifest as unknown as { results?: { summary?: string } })?.results?.summary;
+      if (summary) {
+        lines.push(``, `Summary:`, summary);
       } else {
         lines.push(``, `Latest Activity: ${status.activity.description}`);
       }
@@ -302,6 +348,7 @@ export async function executeCloudAgentTool(
           status: status.status,
           branch: status.repo.workBranch,
           commits: status.repo.commits,
+          prUrl: status.manifest?.git?.prUrl,
           truncated: truncated.truncated,
         },
       };
@@ -331,8 +378,43 @@ export async function executeCloudAgentTool(
         };
       }
 
-      const status = await getRunStatus(params.runId);
-      const text = `Steer prompt dispatched to cloud agent ${status.shortRunId} (${params.followUp ? "follow-up mode" : "steer mode"}).`;
+      const status = await fetchRunStatusDetails(params.runId);
+
+      // If runner endpoint and microvmId are active, dispatch to runner via RunClient
+      let dispatchedLive = false;
+      if (
+        status.manifest?.endpoint &&
+        status.manifest?.microvmId &&
+        (status.status === "RUNNING" ||
+          status.status === "running" ||
+          status.status === "IDLE" ||
+          status.status === "idle")
+      ) {
+        try {
+          const config = loadLocalConfig();
+          const factory = new AwsClientFactory(config);
+          const microvmsClient = factory.getLambdaMicrovmsClient(config.aws.region, config.aws.profile);
+          const runClient = new RunClient({
+            endpoint: status.manifest.endpoint,
+            microvmIdentifier: status.manifest.microvmId,
+            region: config.aws.region,
+            profile: config.aws.profile,
+            clientFactory: factory,
+            microvmsClient,
+          });
+
+          await runClient.prompt({
+            prompt: params.prompt,
+            mode: params.followUp ? "followUp" : "steer",
+            steer: !params.followUp,
+          });
+          dispatchedLive = true;
+        } catch {
+          // Fall back gracefully if live dispatch fails
+        }
+      }
+
+      const text = `Steer prompt dispatched to cloud agent ${status.shortRunId} (${params.followUp ? "follow-up mode" : "steer mode"}${dispatchedLive ? ", live connected" : ""}).`;
 
       return {
         content: [{ type: "text", text }],
@@ -340,6 +422,7 @@ export async function executeCloudAgentTool(
           action: "steer",
           runId: status.runId,
           followUp: !!params.followUp,
+          dispatchedLive,
         },
       };
     }
@@ -357,7 +440,7 @@ export async function executeCloudAgentTool(
         };
       }
 
-      const stopResult = await stopCloudRun({ runId: params.runId });
+      const stopResult = await stopCloudRun(params.runId);
       const text = `Cloud agent run ${stopResult.runId} stopped: ${stopResult.message}`;
 
       return {
@@ -405,13 +488,13 @@ export function registerCloudAgentTool(pi: ExtensionAPI): void {
         params as CloudAgentToolParamsType,
         signal,
         onUpdate,
-        ctx as ToolExecutionContext,
+        ctx as unknown as ToolExecutionContext,
       );
     },
     renderCall(args, _theme, _context) {
       const p = args as CloudAgentToolParamsType;
       const action = p.action || "launch";
-      let summary = action;
+      let summary = String(action);
 
       if (action === "launch" && p.prompt) {
         const shortPrompt = p.prompt.length > 50 ? `${p.prompt.slice(0, 47)}…` : p.prompt;
@@ -428,10 +511,14 @@ export function registerCloudAgentTool(pi: ExtensionAPI): void {
       const action = details.action as string | undefined;
 
       if (action === "launch" && details.runId) {
-        return new Text(`${GLYPHS.running} Launched cloud run ${(details.runId as string).slice(0, 8)} (${details.branch})`);
+        return new Text(
+          `${GLYPHS.running} Launched cloud run ${(details.runId as string).slice(0, 8)} (${details.branch})`,
+        );
       }
       if (action === "status" && details.runId) {
-        return new Text(`${GLYPHS.running} Run ${(details.runId as string).slice(0, 8)}: ${details.status} (${details.turns} turns, ${details.cost})`);
+        return new Text(
+          `${GLYPHS.running} Run ${(details.runId as string).slice(0, 8)}: ${details.status} (${details.turns} turns, ${details.cost})`,
+        );
       }
       if (action === "result" && details.runId) {
         return new Text(`${GLYPHS.pass} Result for ${(details.runId as string).slice(0, 8)}: ${details.status}`);
@@ -440,7 +527,10 @@ export function registerCloudAgentTool(pi: ExtensionAPI): void {
         return new Text(`${GLYPHS.idle} Stopped ${(details.runId as string).slice(0, 8)}`);
       }
 
-      return new Text(result?.content?.[0]?.text?.slice(0, 80) || "cloud_agent finished");
+      const firstContent = result?.content?.[0];
+      const textPreview =
+        (firstContent && "text" in firstContent ? firstContent.text : "") || "cloud_agent finished";
+      return new Text(textPreview.slice(0, 80));
     },
   });
 }

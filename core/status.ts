@@ -26,6 +26,8 @@ import {
 } from "./list.js";
 import { DEFAULT_STACK_NAME } from "./sync.js";
 
+export const getRunStatus = fetchRunStatusDetails;
+
 export interface FetchRunStatusOptions {
   config?: LocalConfig;
   s3Client?: S3Client;

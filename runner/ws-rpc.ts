@@ -10,6 +10,7 @@ import type stream from "node:stream";
 import { URL } from "node:url";
 import { WebSocket, WebSocketServer } from "ws";
 import type { Logger } from "./logger.js";
+import { redactObject } from "./pi-extensions/redact.js";
 import type { PiProcessManager } from "./pi-process.js";
 
 export const DEFAULT_WS_MAX_BUFFERED_AMOUNT = 65536; // 64 KB
@@ -400,7 +401,8 @@ export class WebSocketRpcBridge {
     if (client.ws.readyState !== WebSocket.OPEN) return;
 
     try {
-      const payload = `${JSON.stringify(msg)}\n`;
+      const sanitized = redactObject(msg);
+      const payload = `${JSON.stringify(sanitized)}\n`;
       client.ws.send(payload);
     } catch (err) {
       this.logger?.warn?.(

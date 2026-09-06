@@ -16,6 +16,7 @@ import {
   encodeRunManifest,
 } from "../shared/protocol.js";
 import type { Logger } from "./logger.js";
+import { redactText } from "./pi-extensions/redact.js";
 import type { StorageSink } from "./storage.js";
 
 /**
@@ -283,7 +284,9 @@ export class RunStateMachine {
    * Appends raw session chunk (e.g. JSONL lines) to in-memory buffer and schedules debounced flush.
    */
   public appendSessionChunk(chunk: string | Buffer): void {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk, "utf8");
+    const rawStr = Buffer.isBuffer(chunk) ? chunk.toString("utf8") : chunk;
+    const sanitizedStr = redactText(rawStr);
+    const buffer = Buffer.from(sanitizedStr, "utf8");
     this.sessionBuffer = Buffer.concat([this.sessionBuffer, buffer]);
     this.sessionDirty = true;
     this.scheduleDebouncedSessionFlush();
@@ -331,6 +334,11 @@ export class RunStateMachine {
     }
 
     if (payloadToUpload) {
+      // Redact any secrets before uploading to storage sink
+      const rawText = payloadToUpload.toString("utf8");
+      const sanitizedText = redactText(rawText);
+      payloadToUpload = Buffer.from(sanitizedText, "utf8");
+
       try {
         await this.retryOperation(
           () =>

@@ -161,11 +161,24 @@ export async function assembleInVmPiEnvironment(
     AWS_REGION: payload.stack.region,
   };
 
+  // Build redaction map for In-VM redaction extension (T5.1)
+  const redactMap: Record<string, string> = {};
+
   // Attach GitHub token if configured
   if (githubToken) {
-    env.GITHUB_TOKEN = githubToken.trim();
-    env.GH_TOKEN = githubToken.trim();
+    const trimmedToken = githubToken.trim();
+    env.GITHUB_TOKEN = trimmedToken;
+    env.GH_TOKEN = trimmedToken;
+    redactMap.GITHUB_TOKEN = trimmedToken;
   }
+
+  for (const [providerId, secretVal] of secretsMap.entries()) {
+    if (secretVal && secretVal.trim().length >= 4) {
+      redactMap[`${providerId.toUpperCase()}_API_KEY`] = secretVal.trim();
+    }
+  }
+
+  env.PI_CLOUD_REDACT_ENV = JSON.stringify(redactMap);
 
   // Scrub any unauthorized provider API keys from ambient process environment
   for (const envKey of SENSITIVE_PROVIDER_ENV_KEYS) {
