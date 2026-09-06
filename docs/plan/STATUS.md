@@ -59,8 +59,8 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
 | T4.1a | Extension skeleton, router, doctor | M | G2 | done | [docs/evidence/T4.1a.md](docs/evidence/T4.1a.md) |
-| T4.1b | UI kit and style compliance (no-emoji lint) | M | T4.1a | in-progress (agent, started) | [docs/evidence/T4.1b.md](docs/evidence/T4.1b.md) |
-| T4.2 | AWS client factory and error mapping | S/M | T1.2 | ready | |
+| T4.1b | UI kit and style compliance (no-emoji lint) | M | T4.1a | done | [docs/evidence/T4.1b.md](docs/evidence/T4.1b.md) |
+| T4.2 | AWS client factory and error mapping | S/M | T1.2 | in-progress (agent, started) | [docs/evidence/T4.2.md](docs/evidence/T4.2.md) |
 | T4.3a | Setup wizard: quick setup default + custom | M | T4.1a, T4.1b, T4.2, T3.4 | todo | |
 | T4.3b | Setup execution (deploy, image, bundle, secrets) | M | T4.3a, T3.2, T3.3 | todo | |
 | T4.3c | Standalone CLI `npx pi-cloud-agents` | M | T4.3b | todo | |
