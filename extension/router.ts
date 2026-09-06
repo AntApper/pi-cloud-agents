@@ -3,6 +3,7 @@
  */
 
 import { handleCloudConfigCommand } from "./commands/config.js";
+import { handleCloudNewCommand } from "./commands/new.js";
 import { handleCloudSetupCommand } from "./commands/setup.js";
 import { handleCloudSyncCommand } from "./commands/sync.js";
 import { handleCloudVerifyCommand } from "./commands/verify.js";
@@ -259,6 +260,10 @@ export async function routeCloudCommand(
 
   if (sub === "verify") {
     return handleCloudVerifyCommand(subArgs, ctx);
+  }
+
+  if (sub === "new") {
+    return handleCloudNewCommand(subArgs, ctx);
   }
 
   if (sub === "config") {

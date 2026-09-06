@@ -152,6 +152,15 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t4.3b-t4.3c-t4.3d-t4.4 · T4.3b, T4.3c, T4.3d, T4.4
+- did: implemented setup execution engine with step ledger (`core/setup/run.ts`), standalone CLI (`cli/main.ts`), verification engine & `/cloud verify` (`core/verify/engine.ts`, `extension/commands/verify.ts`), and `/cloud new` launch flow (`core/launcher.ts`, `extension/commands/new.ts`).
+- validated: `npm run check` (43 test files / 372 tests green, 0 glyph violations), CLI dry-run with fixture, and npm pack verified.
+- left: T4.3b, T4.3c, T4.3d, and T4.4 complete.
+- next: start `T4.6` (`/cloud list` and `/cloud status`) or `T4.10` (`/cloud update` and `/cloud destroy`) or `T4.7a` (`/cloud attach`).
+- aws: none
+- open: none
+
+
 
 
 
