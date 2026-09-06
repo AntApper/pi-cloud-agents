@@ -33,15 +33,15 @@ describe("Extension registration", () => {
     expect(registeredCommands.has("cloud")).toBe(true);
   });
 
-  it("notifies when handler is executed in UI mode", async () => {
-    let handlerFn: ((args: unknown, ctx: unknown) => Promise<void>) | undefined;
+  it("notifies help catalog when handler is executed without args in UI mode", async () => {
+    let handlerFn: ((args: string, ctx: unknown) => Promise<void>) | undefined;
     const mockPi = {
       registerCommand: vi.fn(
         (
           _name: string,
           options: {
             description?: string;
-            handler: (args: unknown, ctx: unknown) => Promise<void>;
+            handler: (args: string, ctx: unknown) => Promise<void>;
           },
         ) => {
           handlerFn = options.handler;
@@ -53,12 +53,14 @@ describe("Extension registration", () => {
     expect(handlerFn).toBeDefined();
 
     const notify = vi.fn();
+    const setStatus = vi.fn();
     const ctx = {
       hasUI: true,
-      ui: { notify },
+      ui: { notify, setStatus },
     };
 
-    await handlerFn!({}, ctx);
-    expect(notify).toHaveBeenCalledWith("pi-cloud-agents loaded");
+    await handlerFn!("", ctx);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Command Catalog"), "info");
+    expect(setStatus).toHaveBeenCalledWith("cloud", "cloud 0 running · 0 idle");
   });
 });

@@ -52,14 +52,14 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T3.3 | Image manager | M | T3.2, T2.9 | done | [docs/evidence/T3.3.md](docs/evidence/T3.3.md) |
 | T3.4 | Secrets store (AWS Secrets Manager) | S/M | T1.2 | done | [docs/evidence/T3.4.md](docs/evidence/T3.4.md) |
 | T3.5 | Controller Lambda (keepalive, idle policy, janitor) | M | T2.6, T2.7, T3.1b | done | [docs/evidence/T3.5.md](docs/evidence/T3.5.md) |
-| G3 | Gate: live infra smoke [AWS] | M | T3.2–T3.5, T2.9 | ready | |
+| G3 | Gate: live infra smoke [AWS] | M | T3.2–T3.5, T2.9 | passed | [docs/evidence/G3.md](docs/evidence/G3.md) |
 
 ## Phase 4 — Local extension and CLI
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T4.1a | Extension skeleton, router, doctor | M | G2 | ready | |
-| T4.1b | UI kit and style compliance (no-emoji lint) | M | T4.1a | todo | |
+| T4.1a | Extension skeleton, router, doctor | M | G2 | done | [docs/evidence/T4.1a.md](docs/evidence/T4.1a.md) |
+| T4.1b | UI kit and style compliance (no-emoji lint) | M | T4.1a | in-progress (agent, started) | [docs/evidence/T4.1b.md](docs/evidence/T4.1b.md) |
 | T4.2 | AWS client factory and error mapping | S/M | T1.2 | ready | |
 | T4.3a | Setup wizard: quick setup default + custom | M | T4.1a, T4.1b, T4.2, T3.4 | todo | |
 | T4.3b | Setup execution (deploy, image, bundle, secrets) | M | T4.3a, T3.2, T3.3 | todo | |
