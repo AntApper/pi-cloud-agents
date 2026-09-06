@@ -96,13 +96,14 @@ Entry template:
 - aws: none
 - open: none
 
-## 2026-09-06 · t2.1-t2.2-runner · T2.1, T2.2
-- did: implemented MicroVM lifecycle hook server (`runner/hooks.ts`), structured logger with deep secret redaction (`runner/logger.ts`), secrets and storage providers (`runner/secrets.ts`, `runner/storage.ts`), and in-VM pi environment assembler (`runner/pi-config.ts`).
-- validated: `npm run check` (155 tests green across 18 files, 0 glyph violations).
-- left: T2.1 and T2.2 complete. T2.3, T2.4, and T2.6 unblocked and ready.
-- next: start `T2.3` (workspace preparation: git + install), `T2.4` (pi process manager RPC bridge), or `T2.6` (run state machine and persistence).
+## 2026-09-06 · t2.3-t2.4-t2.6-runner · T2.3, T2.4, T2.6
+- did: implemented workspace preparation (`runner/workspace.ts`), pi process manager RPC bridge (`runner/pi-process.ts`, `tests/fakes/fake-pi.ts`), and run state machine with persistence (`runner/state.ts`).
+- validated: `npm run check` (176 tests green across 21 test files, 0 glyph violations).
+- left: T2.3, T2.4, and T2.6 complete.
+- next: start `T2.5a` (Runner HTTP API REST + SSE) or `T2.7` (Lifecycle policy).
 - aws: none
 - open: none
+
 
 
 

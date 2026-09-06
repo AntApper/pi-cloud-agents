@@ -35,7 +35,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T2.4 | pi process manager (RPC bridge) | M | T2.2 | done | [docs/evidence/T2.4.md](docs/evidence/T2.4.md) |
 | T2.5a | Runner HTTP API (REST + SSE) | M | T2.4, T1.3 | ready | |
 | T2.5b | Runner WebSocket RPC passthrough | M | T2.5a | todo | |
-| T2.6 | Run state machine and persistence | M | T2.2 | ready | |
+| T2.6 | Run state machine and persistence | M | T2.2 | done | [docs/evidence/T2.6.md](docs/evidence/T2.6.md) |
 | T2.7 | Lifecycle policy (idle reporting, finalize, resume recovery) | M | T2.5a, T2.6 | todo | |
 | T2.10 | Runner metrics and lifecycle timeline | M | T2.5a, T2.6 | todo | |
 | T2.8 | Local harness, mock LLM, e2e:local | M | T2.3, T2.5b, T2.7, T2.10 | todo | |
