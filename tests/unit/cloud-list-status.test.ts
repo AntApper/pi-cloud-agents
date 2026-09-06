@@ -270,14 +270,9 @@ describe("T4.6 /cloud list & /cloud status", () => {
 
   describe("fetchRunStatusDetails and formatRunStatusCard", () => {
     it("fetches run status details from S3 and renders detail card matching §2.3 spec", async () => {
-      s3Mock
-        .on(ListObjectsV2Command, {
-          Bucket: "test-bucket",
-          Prefix: "runs/run-7f3a2c",
-        })
-        .resolves({
-          Contents: [{ Key: "runs/run-20260906-7f3a2c/manifest.json" }],
-        });
+      s3Mock.on(ListObjectsV2Command).resolves({
+        Contents: [{ Key: "runs/run-20260906-7f3a2c/manifest.json" }],
+      });
 
       s3Mock
         .on(GetObjectCommand, {

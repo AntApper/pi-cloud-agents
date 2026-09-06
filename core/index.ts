@@ -30,3 +30,4 @@ export * from "./verify/engine.js";
 export * from "./launcher.js";
 export * from "./list.js";
 export * from "./status.js";
+export * from "./controls.js";

@@ -134,30 +134,8 @@ export async function resolveRunId(
   const trimmed = queryId.trim();
   if (!trimmed) throw new Error("Run ID is required");
 
-  // If query is full runId
-  if (trimmed.startsWith("run-")) {
-    return trimmed;
-  }
-
-  // Look for matching prefix in S3
   try {
     const listRes = await s3Client.send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: `runs/run-${trimmed}`,
-        MaxKeys: 10,
-      }),
-    );
-
-    for (const obj of listRes.Contents || []) {
-      const match = obj.Key?.match(/^runs\/(run-[a-z0-9-]+)\/manifest\.json$/);
-      if (match?.[1]) {
-        return match[1];
-      }
-    }
-
-    // Try general search under runs/
-    const allRunsRes = await s3Client.send(
       new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: "runs/",
@@ -165,17 +143,20 @@ export async function resolveRunId(
       }),
     );
 
-    for (const obj of allRunsRes.Contents || []) {
+    for (const obj of listRes.Contents || []) {
       const match = obj.Key?.match(/^runs\/(run-[a-z0-9-]+)\/manifest\.json$/);
-      if (match?.[1]?.includes(trimmed)) {
-        return match[1];
+      if (match?.[1]) {
+        const fullId = match[1];
+        if (fullId === trimmed || fullId === `run-${trimmed}` || fullId.includes(trimmed)) {
+          return fullId;
+        }
       }
     }
   } catch {
     // Fall back to formatted ID
   }
 
-  return `run-${trimmed}`;
+  return trimmed.startsWith("run-") ? trimmed : `run-${trimmed}`;
 }
 
 /**

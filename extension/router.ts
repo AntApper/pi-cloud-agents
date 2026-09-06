@@ -3,6 +3,14 @@
  */
 
 import { handleCloudConfigCommand } from "./commands/config.js";
+import {
+  handleCloudLogsCommand,
+  handleCloudPrCommand,
+  handleCloudResumeCommand,
+  handleCloudShellCommand,
+  handleCloudStopCommand,
+  handleCloudSuspendCommand,
+} from "./commands/controls.js";
 import { handleCloudListCommand } from "./commands/list.js";
 import { handleCloudNewCommand } from "./commands/new.js";
 import { handleCloudSetupCommand } from "./commands/setup.js";
@@ -276,6 +284,30 @@ export async function routeCloudCommand(
 
   if (sub === "status") {
     return handleCloudStatusCommand(subArgs, ctx);
+  }
+
+  if (sub === "stop") {
+    return handleCloudStopCommand(subArgs, ctx);
+  }
+
+  if (sub === "suspend") {
+    return handleCloudSuspendCommand(subArgs, ctx);
+  }
+
+  if (sub === "resume") {
+    return handleCloudResumeCommand(subArgs, ctx);
+  }
+
+  if (sub === "logs") {
+    return handleCloudLogsCommand(subArgs, ctx);
+  }
+
+  if (sub === "pr") {
+    return handleCloudPrCommand(subArgs, ctx);
+  }
+
+  if (sub === "shell") {
+    return handleCloudShellCommand(subArgs, ctx);
   }
 
   const knownSub = CLOUD_SUBCOMMANDS.find((cmd) => cmd.name === sub);
