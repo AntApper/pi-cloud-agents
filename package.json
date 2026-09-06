@@ -7,9 +7,13 @@
   "bin": {
     "pi-cloud-agents": "./cli/main.js"
   },
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "pi": {
-    "extensions": ["./extension/index.ts"]
+    "extensions": [
+      "./extension/index.ts"
+    ]
   },
   "engines": {
     "node": ">=22.19"
@@ -66,6 +70,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-cloudformation": "^3.1127.0",
+    "@aws-sdk/client-cloudwatch-logs": "^3.1127.0",
     "@aws-sdk/client-iam": "^3.1127.0",
     "@aws-sdk/client-lambda-microvms": "^3.1127.0",
     "@aws-sdk/client-s3": "^3.1127.0",

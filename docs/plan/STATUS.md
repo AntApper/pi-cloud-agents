@@ -49,7 +49,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T3.1a | CloudFormation core stack | M | T1.1 | done | [docs/evidence/T3.1a.md](docs/evidence/T3.1a.md) |
 | T3.1b | CloudFormation image stack | M | T3.1a | done | [docs/evidence/T3.1b.md](docs/evidence/T3.1b.md) |
 | T3.2 | Stack deployer module | M | T3.1b | done | [docs/evidence/T3.2.md](docs/evidence/T3.2.md) |
-| T3.3 | Image manager | M | T3.2, T2.9 | ready | |
+| T3.3 | Image manager | M | T3.2, T2.9 | in-progress (t3.3-image-manager, 2026-09-06T22:52:00Z) | |
 | T3.4 | Secrets store (AWS Secrets Manager) | S/M | T1.2 | done | [docs/evidence/T3.4.md](docs/evidence/T3.4.md) |
 | T3.5 | Controller Lambda (keepalive, idle policy, janitor) | M | T2.6, T2.7, T3.1b | ready | |
 | G3 | Gate: live infra smoke [AWS] | M | T3.2–T3.5, T2.9 | pending | |
