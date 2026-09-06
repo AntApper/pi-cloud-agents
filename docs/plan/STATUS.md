@@ -46,8 +46,8 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T3.1a | CloudFormation core stack | M | T1.1 | ready | |
-| T3.1b | CloudFormation image stack | M | T3.1a | todo | |
+| T3.1a | CloudFormation core stack | M | T1.1 | done | [docs/evidence/T3.1a.md](docs/evidence/T3.1a.md) |
+| T3.1b | CloudFormation image stack | M | T3.1a | ready | |
 | T3.2 | Stack deployer module | M | T3.1b | todo | |
 | T3.3 | Image manager | M | T3.2, T2.9 | todo | |
 | T3.4 | Secrets store (AWS Secrets Manager) | S/M | T1.2 | ready | |

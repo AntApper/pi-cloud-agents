@@ -1,0 +1,408 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "pi-cloud-agents-core: foundational storage, IAM roles, and operator policies for pi cloud agents"
+
+Parameters:
+  ImageName:
+    Type: String
+    Default: "pi-cloud-agents-runner"
+    Description: "Name of the MicroVM image"
+
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    Description: "Retention period in days for CloudWatch log groups"
+
+  ArchiveRetentionDays:
+    Type: Number
+    Default: 30
+    Description: "S3 lifecycle expiration in days for runs/ prefix"
+
+  KmsKeyArn:
+    Type: String
+    Default: ""
+    Description: "Optional customer-managed KMS key ARN for Secrets Manager and S3 encryption"
+
+  EnableBedrock:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: "Enable Amazon Bedrock invocation permissions in the execution role"
+
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref KmsKeyArn, ""]]
+  BedrockEnabled: !Equals [!Ref EnableBedrock, "true"]
+
+Resources:
+  ArtifactBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: !If [HasKmsKey, "aws:kms", "AES256"]
+              KMSMasterKeyID: !If [HasKmsKey, !Ref KmsKeyArn, !Ref "AWS::NoValue"]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireRunsArchive
+            Status: Enabled
+            Prefix: "runs/"
+            ExpirationInDays: !Ref ArchiveRetentionDays
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  ImageLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/microvms/${ImageName}"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  ControllerLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Sub "/pi-cloud-agents/${AWS::StackName}/controller"
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  BuildRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "pi-cloud-agents-${AWS::StackName}-build-role-${AWS::Region}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+              - "sts:TagSession"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Sub "${AWS::AccountId}"
+      Policies:
+        - PolicyName: BuildArtifactAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: S3ArtifactRead
+                Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                Resource:
+                  - !Sub "${ArtifactBucket.Arn}/runner/*"
+              - Sid: S3BucketList
+                Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                Resource:
+                  - !GetAtt ArtifactBucket.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "runner/*"
+              - Sid: CloudWatchBuildLogs
+                Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/microvms/*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda-microvms/*"
+              - !If
+                - HasKmsKey
+                - Sid: KmsDecryptArtifacts
+                  Effect: Allow
+                  Action:
+                    - "kms:Decrypt"
+                    - "kms:DescribeKey"
+                  Resource: !Ref KmsKeyArn
+                - !Ref "AWS::NoValue"
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  ExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "pi-cloud-agents-${AWS::StackName}-execution-role-${AWS::Region}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+              - "sts:TagSession"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Sub "${AWS::AccountId}"
+      Policies:
+        - PolicyName: GuestExecutionPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: S3RunsReadWrite
+                Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:PutObject"
+                  - "s3:DeleteObject"
+                Resource:
+                  - !Sub "${ArtifactBucket.Arn}/runs/*"
+                  - !Sub "${ArtifactBucket.Arn}/index/*"
+              - Sid: S3ConfigRead
+                Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                Resource:
+                  - !Sub "${ArtifactBucket.Arn}/config/*"
+              - Sid: S3BucketList
+                Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                Resource:
+                  - !GetAtt ArtifactBucket.Arn
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "runs/*"
+                      - "config/*"
+                      - "index/*"
+              - Sid: SecretsManagerRead
+                Effect: Allow
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                  - "secretsmanager:DescribeSecret"
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:pi-cloud-agents/${AWS::StackName}/*"
+              - Sid: CloudWatchGuestLogs
+                Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/microvms/*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda-microvms/*"
+              - !If
+                - HasKmsKey
+                - Sid: KmsDecryptSecretsAndStorage
+                  Effect: Allow
+                  Action:
+                    - "kms:Decrypt"
+                    - "kms:DescribeKey"
+                    - "kms:GenerateDataKey*"
+                  Resource: !Ref KmsKeyArn
+                - !Ref "AWS::NoValue"
+              - !If
+                - BedrockEnabled
+                - Sid: BedrockInvocation
+                  Effect: Allow
+                  Action:
+                    - "bedrock:InvokeModel"
+                    - "bedrock:InvokeModelWithResponseStream"
+                  Resource:
+                    - !Sub "arn:aws:bedrock:${AWS::Region}::foundation-model/*"
+                    - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:custom-model/*"
+                    - !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:provisioned-model/*"
+                - !Ref "AWS::NoValue"
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  OperatorPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      ManagedPolicyName: !Sub "pi-cloud-agents-${AWS::StackName}-operator-policy-${AWS::Region}"
+      Description: "Managed policy describing operator privileges required to manage and run pi-cloud-agents"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CloudFormationStackOps
+            Effect: Allow
+            Action:
+              - "cloudformation:CreateStack"
+              - "cloudformation:UpdateStack"
+              - "cloudformation:DeleteStack"
+              - "cloudformation:DescribeStacks"
+              - "cloudformation:DescribeStackEvents"
+              - "cloudformation:DescribeStackResources"
+              - "cloudformation:GetTemplate"
+              - "cloudformation:CreateChangeSet"
+              - "cloudformation:DescribeChangeSet"
+              - "cloudformation:ExecuteChangeSet"
+              - "cloudformation:DeleteChangeSet"
+              - "cloudformation:ListChangeSets"
+            Resource:
+              - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/pi-cloud-agents*/*"
+              - !Sub "arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:changeSet/*/*"
+          - Sid: S3ArtifactBucketOps
+            Effect: Allow
+            Action:
+              - "s3:CreateBucket"
+              - "s3:DeleteBucket"
+              - "s3:GetBucketLocation"
+              - "s3:GetBucketPolicy"
+              - "s3:PutBucketPolicy"
+              - "s3:GetBucketVersioning"
+              - "s3:PutBucketVersioning"
+              - "s3:GetBucketPublicAccessBlock"
+              - "s3:PutBucketPublicAccessBlock"
+              - "s3:GetEncryptionConfiguration"
+              - "s3:PutEncryptionConfiguration"
+              - "s3:GetLifecycleConfiguration"
+              - "s3:PutLifecycleConfiguration"
+              - "s3:ListBucket"
+              - "s3:ListBucketVersions"
+              - "s3:GetObject"
+              - "s3:GetObjectVersion"
+              - "s3:PutObject"
+              - "s3:DeleteObject"
+              - "s3:DeleteObjectVersion"
+            Resource:
+              - !GetAtt ArtifactBucket.Arn
+              - !Sub "${ArtifactBucket.Arn}/*"
+          - Sid: SecretsManagerOps
+            Effect: Allow
+            Action:
+              - "secretsmanager:CreateSecret"
+              - "secretsmanager:UpdateSecret"
+              - "secretsmanager:PutSecretValue"
+              - "secretsmanager:GetSecretValue"
+              - "secretsmanager:DescribeSecret"
+              - "secretsmanager:DeleteSecret"
+              - "secretsmanager:TagResource"
+              - "secretsmanager:UntagResource"
+            Resource:
+              - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:pi-cloud-agents/${AWS::StackName}/*"
+          - Sid: MicrovmImageOps
+            Effect: Allow
+            Action:
+              - "lambda:CreateMicrovmImage"
+              - "lambda:UpdateMicrovmImage"
+              - "lambda:GetMicrovmImage"
+              - "lambda:GetMicrovmImageBuild"
+              - "lambda:ListMicrovmImages"
+              - "lambda:ListMicrovmImageVersions"
+              - "lambda:DeleteMicrovmImage"
+              - "lambda:DeleteMicrovmImageVersion"
+              - "lambda:TagResource"
+              - "lambda:UntagResource"
+            Resource:
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm-image:${ImageName}"
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm-image:${ImageName}:*"
+          - Sid: MicrovmRuntimeOps
+            Effect: Allow
+            Action:
+              - "lambda:RunMicrovm"
+              - "lambda:GetMicrovm"
+              - "lambda:ListMicrovms"
+              - "lambda:SuspendMicrovm"
+              - "lambda:ResumeMicrovm"
+              - "lambda:TerminateMicrovm"
+              - "lambda:CreateMicrovmAuthToken"
+              - "lambda:CreateMicrovmShellAuthToken"
+            Resource:
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm:*"
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm-image:${ImageName}"
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm-image:${ImageName}:*"
+          - Sid: PassNetworkConnector
+            Effect: Allow
+            Action:
+              - "lambda:PassNetworkConnector"
+            Resource:
+              - !Sub "arn:aws:lambda:${AWS::Region}:aws:network-connector:aws-network-connector:*"
+              - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:network-connector:*"
+          - Sid: PassRoleToMicrovm
+            Effect: Allow
+            Action:
+              - "iam:PassRole"
+            Resource:
+              - !GetAtt BuildRole.Arn
+              - !GetAtt ExecutionRole.Arn
+            Condition:
+              StringEquals:
+                "iam:PassedToService": "lambda.amazonaws.com"
+          - Sid: CloudWatchLogsOps
+            Effect: Allow
+            Action:
+              - "logs:CreateLogGroup"
+              - "logs:DeleteLogGroup"
+              - "logs:DescribeLogGroups"
+              - "logs:DescribeLogStreams"
+              - "logs:FilterLogEvents"
+              - "logs:GetLogEvents"
+              - "logs:PutRetentionPolicy"
+            Resource:
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/microvms/*"
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda-microvms/*"
+              - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/pi-cloud-agents/*"
+          - Sid: DiscoveryAndReadinessOps
+            Effect: Allow
+            Action:
+              - "sts:GetCallerIdentity"
+              - "lambda:ListManagedMicrovmImages"
+              - "lambda:ListManagedMicrovmImageVersions"
+              - "lambda:ListMicrovmImages"
+              - "lambda:ListMicrovms"
+              - "secretsmanager:ListSecrets"
+              - "servicequotas:GetServiceQuota"
+              - "servicequotas:ListServiceQuotas"
+            Resource: "*"
+
+Outputs:
+  BucketName:
+    Description: "Name of the artifact and session persistence S3 bucket"
+    Value: !Ref ArtifactBucket
+  BucketArn:
+    Description: "ARN of the artifact and session persistence S3 bucket"
+    Value: !GetAtt ArtifactBucket.Arn
+  BuildRoleArn:
+    Description: "ARN of the IAM Build Role used by AWS::Lambda::MicrovmImage"
+    Value: !GetAtt BuildRole.Arn
+  ExecutionRoleArn:
+    Description: "ARN of the IAM Execution Role assumed during MicroVM execution"
+    Value: !GetAtt ExecutionRole.Arn
+  OperatorPolicyArn:
+    Description: "ARN of the Managed Policy granting operator permissions"
+    Value: !Ref OperatorPolicy
+  ImageLogGroup:
+    Description: "CloudWatch log group for MicroVM image build and guest logging"
+    Value: !Ref ImageLogGroup
+  ControllerLogGroup:
+    Description: "CloudWatch log group for Controller Lambda"
+    Value: !Ref ControllerLogGroup
