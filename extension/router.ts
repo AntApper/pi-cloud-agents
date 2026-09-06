@@ -21,6 +21,7 @@ import { handleCloudSyncCommand } from "./commands/sync.js";
 import { handleCloudVerifyCommand } from "./commands/verify.js";
 import { type DoctorProbeOptions, formatDoctorTable, runDoctorDiagnostics } from "./doctor.js";
 import type { PiUiContext } from "./prompter-pi.js";
+import { handleCloudAbortCommand } from "./ui/input-handler.js";
 
 export interface SubcommandDefinition {
   name: string;
@@ -67,6 +68,12 @@ export const CLOUD_SUBCOMMANDS: SubcommandDefinition[] = [
     name: "detach",
     description: "Detach current mirror session from cloud run",
     usage: "/cloud detach",
+  },
+  {
+    name: "abort",
+    description: "Abort current active turn on cloud agent VM",
+    usage: "/cloud abort [runId]",
+    takesRunId: true,
   },
   {
     name: "stop",
@@ -294,6 +301,10 @@ export async function routeCloudCommand(
 
   if (sub === "detach") {
     return handleCloudDetachCommand(subArgs, ctx);
+  }
+
+  if (sub === "abort") {
+    return handleCloudAbortCommand(subArgs, ctx);
   }
 
   if (sub === "stop") {

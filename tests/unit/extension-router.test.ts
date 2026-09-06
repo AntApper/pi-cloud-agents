@@ -32,8 +32,9 @@ describe("Extension Router (T4.1a)", () => {
       expect(names).toContain("dashboard");
       expect(names).toContain("update");
       expect(names).toContain("destroy");
+      expect(names).toContain("abort");
       expect(names).toContain("help");
-      expect(names.length).toBe(20);
+      expect(names.length).toBe(21);
     });
 
     it("autocompletes subcommand names from prefix", () => {

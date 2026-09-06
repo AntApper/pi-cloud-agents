@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { PiUiContext } from "./prompter-pi.js";
 import { getCloudArgumentCompletions, routeCloudCommand } from "./router.js";
+import { registerInputHandling } from "./ui/input-handler.js";
 import {
   beforeAgentStartGuard,
   detachActiveMirrorSession,
@@ -8,6 +9,9 @@ import {
 } from "./ui/mirror.js";
 
 export default function (pi: ExtensionAPI): void {
+  // Register input interception and abort shortcut
+  registerInputHandling(pi);
+
   pi.registerCommand("cloud", {
     description: "Manage AWS Lambda MicroVM cloud agents",
     getArgumentCompletions: (prefix: string) => {
