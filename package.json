@@ -36,7 +36,7 @@
     "schemas:gen": "tsx scripts/gen-schemas.ts",
     "build": "tsx scripts/build.ts",
     "e2e:local": "tsx scripts/e2e-local.ts",
-    "e2e:aws": "node scripts/e2e-aws.js",
+    "e2e:aws": "tsx scripts/e2e-aws.ts",
     "aws:cleanup": "tsx scripts/aws-cleanup.ts",
     "spike:aws-readiness": "tsx scripts/spike/aws-readiness.ts",
     "spike:credential-portability": "tsx scripts/spike/credential-portability.ts",
