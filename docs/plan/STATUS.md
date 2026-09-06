@@ -8,12 +8,12 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T0.1 | Repository scaffold and toolchain | S/M | — | ready (on go) | |
-| T0.2 | Spike: AWS account readiness + kill-switch [AWS] | S | T0.1 | todo | |
+| T0.1 | Repository scaffold and toolchain | S/M | — | done | [docs/evidence/T0.1.md](docs/evidence/T0.1.md) |
+| T0.2 | Spike: AWS account readiness + kill-switch [AWS] | S | T0.1 | ready | |
 | T0.3 | Spike: hello MicroVM end to end [AWS] | M | T0.2 | todo | |
 | T0.4 | Spike: guest capabilities + keepalive [AWS] | M | T0.3 | todo | |
 | T0.5 | Spike: pi headless on ARM64 + mock LLM [AWS] | M | T0.3 | todo | |
-| T0.6 | Spike: pi credential portability (API keys, OAuth) | M | T0.1 | todo | |
+| T0.6 | Spike: pi credential portability (API keys, OAuth) | M | T0.1 | ready | |
 | G0 | Gate: spikes complete, decisions confirmed | S | T0.2–T0.6 | pending | |
 
 ## Phase 1 — Contracts

@@ -47,3 +47,12 @@ Entry template:
 - next: on the owner's go, T0.1 then T0.6 (no AWS) then T0.2 (readiness + kill-switch).
 - aws: none
 - open: none
+
+## 2026-09-06 · t0.1-scaffold · T0.1
+- did: scaffolded repository toolchain, TypeScript/Biome configs, GitHub Actions CI, minimal /cloud extension, doc glyph scanner, and tests.
+- validated: `npm run check` (typecheck + biome + glyph scan + unit tests), pi rpc `get_commands` lists cloud, `npm pack --dry-run` passed.
+- left: T0.1 complete.
+- next: start `T0.6` (pi credential portability spike) or `T0.2` (AWS readiness spike + kill-switch).
+- aws: none
+- open: none
+
