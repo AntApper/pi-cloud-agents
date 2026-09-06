@@ -327,7 +327,8 @@ export const PromptRequestSchema = z
     },
   );
 
-export type PromptRequest = z.infer<typeof PromptRequestSchema>;
+export type PromptRequest = z.input<typeof PromptRequestSchema>;
+export type PromptRequestOutput = z.output<typeof PromptRequestSchema>;
 
 /**
  * Interrupt / abort request schema for POST /v1/interrupt and POST /v1/abort.

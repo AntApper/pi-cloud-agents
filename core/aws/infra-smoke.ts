@@ -38,14 +38,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 
+import type { StepTiming } from "./hello-microvm.js";
+
 export const TEST_SMOKE_PREFIX = "pi-cloud-agents-test-smoke";
 
-export interface StepTiming {
-  name: string;
-  durationMs: number;
-  status: "PASS" | "FAIL" | "SKIPPED";
-  details?: string;
-}
+export type { StepTiming };
 
 export interface InfraSmokeReport {
   timestamp: string;

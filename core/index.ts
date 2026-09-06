@@ -17,3 +17,7 @@ export * from "./config.js";
 export * from "./pi-config.js";
 export * from "./aws/secrets.js";
 export * from "./aws/stack.js";
+export * from "./aws/image.js";
+export * from "./aws/clients.js";
+export * from "./aws/infra-smoke.js";
+export * from "./client/run-client.js";
