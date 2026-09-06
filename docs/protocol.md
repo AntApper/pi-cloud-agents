@@ -8,17 +8,37 @@ runner service.
 
 The pi-cloud-agents protocol operates across three main communication boundaries:
 
-1. **MicroVM Launch Payload**: Encoded JSON passed via `runHookPayload` to the `/run` lifecycle hook on port 9000.
-2. **Run Manifest**: Persistent state document stored at `runs/<runId>/manifest.json` in the user's S3 bucket.
-3. **Runner HTTP & Streaming API**: In-VM HTTP/SSE/WebSocket service listening on port 8080.
+1. **MicroVM Lifecycle Hooks**: In-VM HTTP service listening on `0.0.0.0:9000`, invoked exclusively by the AWS Lambda MicroVM control plane (`RunMicrovm`, `SuspendMicrovm`, `ResumeMicrovm`, `TerminateMicrovm`).
+2. **Runner HTTP & Streaming API**: In-VM HTTP/SSE/WebSocket service listening on `0.0.0.0:8080`, accessible from the local extension/CLI via the authenticated AWS Lambda MicroVM Proxy.
+3. **Run Manifest & State Storage**: Persistent state document stored at `runs/<runId>/manifest.json` in the user's S3 bucket.
 
 All JSON schemas are versioned (`v: 1`) and generated directly from Zod definitions into `docs/schemas/`.
 
-## 2. LaunchPayload (v1)
+---
+
+## 2. Proxy Authentication & Networking
+
+All client requests to the runner API (port 8080) pass through the AWS Lambda MicroVM HTTPS proxy endpoint (`https://<endpoint>/...`).
+
+### Headers Required
+| Header | Value | Description |
+|---|---|---|
+| `x-aws-proxy-auth` | `string` (JWE token) | JWE auth token minted by `CreateMicrovmAuthToken`. Port-scoped to `8080`. Validity duration <= 60 min (client refreshes at T-5 min). |
+| `x-aws-proxy-port` | `8080` | Target port inside the MicroVM. Direct external access to port 9000 is blocked (returns 403 Forbidden). |
+
+### WebSocket Subprotocols
+When connecting to WebSocket endpoints over the proxy (`wss://<endpoint>/ws/rpc` or `wss://<endpoint>/shell`), the following subprotocols must be negotiated:
+- `lambda-microvms`
+- `lambda-microvms.authentication.<token>`
+- `lambda-microvms.port.8080` (or `lambda-microvms.port.8022` for the shell daemon)
+
+---
+
+## 3. MicroVM Launch Payload (v1)
 
 JSON Schema: [`docs/schemas/launch-payload.v1.json`](schemas/launch-payload.v1.json)
 
-The `LaunchPayload` is constructed locally by the launch command (`/cloud new`) and delivered to the MicroVM via the AWS Lambda MicroVM `RunMicrovm` API.
+The `LaunchPayload` is constructed locally by the launch command (`/cloud new`) and delivered to the MicroVM via the AWS Lambda MicroVM `RunMicrovm` API in `runHookPayload`.
 
 ### Size Constraints
 - **Budget**: Maximum 3,584 bytes (3.5 KB) serialized UTF-8 length.
@@ -39,7 +59,9 @@ The `LaunchPayload` is constructed locally by the launch command (`/cloud new`) 
 | `options` | `object` | Execution options (timeouts, idle policies, max duration up to 28,800s). |
 | `logGroup` | `string` | CloudWatch log group for runner diagnostics. |
 
-## 3. RunManifest (v1)
+---
+
+## 4. Run Manifest (v1)
 
 JSON Schema: [`docs/schemas/run-manifest.v1.json`](schemas/run-manifest.v1.json)
 
@@ -77,36 +99,129 @@ launching ──> running <───> idle ───> completed
 | `continuedFrom` | `string?` | Parent run ID if this run continues a previous 8-hour session. |
 | `timeline` | `array` | Chronological transition history with status, ISO timestamp, and reason. |
 
-## 4. RunnerStatus (v1)
+---
 
-JSON Schema: [`docs/schemas/runner-status.v1.json`](schemas/runner-status.v1.json)
+## 5. MicroVM Lifecycle Hooks (Port 9000)
 
-Exposed by `GET /v1/status` on port 8080.
+The in-VM lifecycle hook server listens on `0.0.0.0:9000` and handles invocations from the MicroVM hypervisor:
 
-### Schema Fields
-| Field | Type | Description |
-|---|---|---|
-| `status` | `string` | Overall runner status. |
-| `runId` | `string` | Active run identifier. |
-| `uptimeSeconds` | `number` | MicroVM runtime uptime in seconds. |
-| `activeConnections` | `number` | Count of attached SSE/WebSocket clients. |
-| `lastActivityAt` | `string` (ISO) | Timestamp of last user or agent activity. |
-| `pi` | `object` | Status of the in-VM pi process (`running`, `pid?`, `currentSessionId?`, `lastEventAt?`). |
+| Route | Method | Purpose | Contract |
+|---|---|---|---|
+| `/aws/lambda-microvms/runtime/v1/ready` | `GET` | VM initialization liveness check | Returns 200 when runner server is up and listening on port 8080. |
+| `/aws/lambda-microvms/runtime/v1/validate` | `POST` | Pre-flight validation probe | Verifies environment, disk, and credentials. Returns 200. |
+| `/aws/lambda-microvms/runtime/v1/run` | `POST` | VM startup and initial payload delivery | Receives `runHookPayload` (`LaunchPayload`). Must respond 200 within 60s (target < 1s) and start bootstrap asynchronously. |
+| `/aws/lambda-microvms/runtime/v1/resume` | `POST` | VM resume from suspension | Resumes background timers, re-establishes outbound network pools, returns 200. |
+| `/aws/lambda-microvms/runtime/v1/suspend` | `POST` | VM pre-suspension checkpoint | Flushes session state and manifest to S3, pauses timers, returns 200. |
+| `/aws/lambda-microvms/runtime/v1/terminate` | `POST` | VM shutdown notification | Final manifest flush, best-effort git push, returns 200 before hypervisor teardown. |
 
-## 5. Event Stream & Error Responses
+---
 
-### Server-Sent Events (SSE) Envelope
-Streams delivered over `GET /v1/events` format events using the standard envelope:
+## 6. Runner HTTP & Streaming API (Port 8080)
+
+### 6.1 `GET /healthz`
+Liveness probe for the runner HTTP service.
+- **Response**: `200 OK`
 ```json
 {
-  "id": "entry-0195a1bc-...",
-  "type": "message_update",
-  "data": { ... }
+  "status": "ok"
 }
 ```
 
-### Error Response Envelope
-JSON Schema: [`docs/schemas/error-response.v1.json`](schemas/error-response.v1.json)
+### 6.2 `GET /v1/status`
+Returns live runner status, agent state, uptime, active connection count, and last activity timestamp.
+- **JSON Schema**: [`docs/schemas/runner-status.v1.json`](schemas/runner-status.v1.json)
+- **Response**: `200 OK`
+```json
+{
+  "status": "running",
+  "runId": "run-20260906-abc123",
+  "uptimeSeconds": 142,
+  "activeConnections": 1,
+  "lastActivityAt": "2026-09-06T17:15:00.000Z",
+  "pi": {
+    "running": true,
+    "pid": 1234,
+    "currentSessionId": "session-xyz",
+    "lastEventAt": "2026-09-06T17:15:00.000Z"
+  }
+}
+```
+
+### 6.3 `GET /v1/manifest`
+Returns the current `RunManifest` for this run.
+- **JSON Schema**: [`docs/schemas/run-manifest.v1.json`](schemas/run-manifest.v1.json)
+- **Response**: `200 OK`
+
+### 6.4 `GET /v1/events`
+Server-Sent Events (SSE) stream for live agent transcript updates, tool calls, thinking chunks, and state changes.
+- **Query Parameter / Header**: `Last-Event-ID: <entryId>` (resumes replay from specified entry ID).
+- **SSE Format**:
+```
+id: entry-0195a1bc-3456-789a-bcde-f0123456789a
+event: message_update
+data: {"type":"message_update","entry":{"id":"entry-0195a1bc-...","role":"assistant","content":[{"type":"text","text":"Working on it..."}]}}
+
+```
+
+### 6.5 `POST /v1/prompt`
+Submits a user prompt, steer instruction, or queued follow-up message to the running pi agent process.
+- **JSON Schema**: [`docs/schemas/prompt-request.v1.json`](schemas/prompt-request.v1.json)
+- **Request Body**:
+```json
+{
+  "prompt": "Investigate the build error",
+  "mode": "prompt",
+  "steer": false
+}
+```
+- **Modes**:
+  - `prompt`: Standard prompt. If the agent is currently streaming, returns `409 Conflict` (client should steer or follow-up).
+  - `steer`: Steers the active LLM turn with immediate direction.
+  - `followUp`: Queues message to be processed once the current turn completes.
+- **Response**: `200 OK` `{ "status": "accepted", "mode": "prompt" }`
+
+### 6.6 `POST /v1/interrupt` & `POST /v1/abort`
+Interrupts active LLM generation or clears pending message queues.
+- **JSON Schema**: [`docs/schemas/interrupt-request.v1.json`](schemas/interrupt-request.v1.json)
+- **Request Body**:
+```json
+{
+  "reason": "User requested abort"
+}
+```
+- **Response**: `200 OK` `{ "status": "interrupted" }`
+
+### 6.7 `POST /v1/finalize`
+Triggers clean shutdown: aborts active loops, commits pending work branch changes, pushes to remote repository if configured, flushes final manifest and transcript to S3, and transitions state to `completed`.
+- **JSON Schema**: [`docs/schemas/finalize-request.v1.json`](schemas/finalize-request.v1.json)
+- **Request Body**:
+```json
+{
+  "autoPush": true,
+  "commitMessage": "pi-cloud-agent: finalized run"
+}
+```
+- **Response**: `200 OK` `{ "status": "finalizing" }`
+
+---
+
+## 7. WebSocket RPC Passthrough (`/ws/rpc`, `/v1/rpc`)
+
+Provides a low-latency bidirectional channel directly into the in-VM pi process RPC bridge.
+
+### Framing Rules
+- **LF-Delimited JSONL (`\n`)**: Each message frame is a UTF-8 string containing exactly one JSON object terminated by `\n`.
+- Never use `readline` on streaming sockets (to avoid incorrect line splits on `\u2028` / `\u2029`).
+- Frame payloads mirror pi RPC protocol:
+  - Client -> VM: `prompt`, `steer`, `follow_up`, `clear_queue`, `abort`, `get_entries`, `extension_ui_response`.
+  - VM -> Client: `message_update`, `tool_execution_start`, `tool_execution_end`, `error`, `extension_ui_request`.
+
+---
+
+## 8. Error Responses & Codes
+
+All HTTP error responses return a structured error body:
+- **JSON Schema**: [`docs/schemas/error-response.v1.json`](schemas/error-response.v1.json)
 
 ```json
 {
@@ -121,16 +236,23 @@ JSON Schema: [`docs/schemas/error-response.v1.json`](schemas/error-response.v1.j
 }
 ```
 
-### Protocol Error Codes
-| Code | Meaning |
-|---|---|
-| `INVALID_PAYLOAD` | Schema validation failed on input payload or request body. |
-| `PAYLOAD_TOO_LARGE` | Launch payload exceeds 3.5 KB size budget. |
-| `UNSUPPORTED_VERSION` | Payload version is not supported (only `v: 1` supported). |
-| `SECRET_MISSING` | Required secret is missing from AWS Secrets Manager. |
-| `INSTALL_TIMEOUT` | Repository setup/install script exceeded timeout. |
-| `PI_PROCESS_CRASH` | In-VM pi RPC process terminated unexpectedly. |
-| `UNAUTHORIZED` | Invalid or expired proxy authentication token. |
-| `NOT_FOUND` | Requested run, session, or entry was not found. |
-| `CONFLICT` | Concurrent conflicting operation or state transition. |
-| `INTERNAL_ERROR` | Unhandled internal runner error. |
+### Standard Protocol Error Codes
+| Code | HTTP Status | Meaning |
+|---|---|---|
+| `INVALID_PAYLOAD` | 400 | Schema validation failed on input payload or request body. |
+| `PAYLOAD_TOO_LARGE` | 400 | Launch payload exceeds 3.5 KB size budget. |
+| `UNSUPPORTED_VERSION` | 400 | Payload version is not supported (only `v: 1` supported). |
+| `UNAUTHORIZED` | 401 | Missing, invalid, or expired proxy authentication token. |
+| `NOT_FOUND` | 404 | Requested run, session, or entry was not found. |
+| `CONFLICT` | 409 | Concurrent conflicting operation (e.g. prompt while streaming). |
+| `SECRET_MISSING` | 500 | Required secret is missing from AWS Secrets Manager. |
+| `INSTALL_TIMEOUT` | 500 | Repository setup/install script exceeded timeout. |
+| `PI_PROCESS_CRASH` | 500 | In-VM pi RPC process terminated unexpectedly. |
+| `INTERNAL_ERROR` | 500 | Unhandled internal runner error. |
+
+---
+
+## 9. Local & Repo Configuration Schemas
+
+- Local configuration (`~/.pi/agent/pi-cloud-agents.json`): [`docs/schemas/local-config.v1.json`](schemas/local-config.v1.json)
+- Per-repository configuration (`.pi/cloud-agents.json`): [`docs/schemas/repo-config.v1.json`](schemas/repo-config.v1.json)

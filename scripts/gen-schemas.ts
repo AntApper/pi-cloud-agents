@@ -5,7 +5,10 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { LocalConfigSchema, RepoConfigSchema } from "../shared/config.js";
 import {
   ErrorResponseSchema,
+  FinalizeRequestSchema,
+  InterruptRequestSchema,
   LaunchPayloadSchema,
+  PromptRequestSchema,
   RunManifestSchema,
   RunnerStatusSchema,
 } from "../shared/protocol.js";
@@ -50,6 +53,21 @@ const targets: SchemaTarget[] = [
     name: "RepoConfig",
     filename: "repo-config.v1.json",
     schema: RepoConfigSchema,
+  },
+  {
+    name: "PromptRequest",
+    filename: "prompt-request.v1.json",
+    schema: PromptRequestSchema,
+  },
+  {
+    name: "InterruptRequest",
+    filename: "interrupt-request.v1.json",
+    schema: InterruptRequestSchema,
+  },
+  {
+    name: "FinalizeRequest",
+    filename: "finalize-request.v1.json",
+    schema: FinalizeRequestSchema,
   },
 ];
 

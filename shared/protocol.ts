@@ -307,3 +307,129 @@ export function decodeRunnerStatus(raw: string): RunnerStatus {
   const parsed = JSON.parse(raw);
   return RunnerStatusSchema.parse(parsed);
 }
+
+/**
+ * Prompt request schema for POST /v1/prompt.
+ * Supports standard prompt, steer (interrupt current turn with direction), and followUp (queue next message).
+ */
+export const PromptRequestSchema = z
+  .object({
+    prompt: z.string().min(1).optional(),
+    message: z.string().min(1).optional(),
+    mode: z.enum(["prompt", "steer", "followUp"]).default("prompt"),
+    steer: z.boolean().optional(),
+  })
+  .refine(
+    (data) =>
+      Boolean((data.prompt && data.prompt.length > 0) || (data.message && data.message.length > 0)),
+    {
+      message: "Either 'prompt' or 'message' must be provided",
+    },
+  );
+
+export type PromptRequest = z.infer<typeof PromptRequestSchema>;
+
+/**
+ * Interrupt / abort request schema for POST /v1/interrupt and POST /v1/abort.
+ */
+export const InterruptRequestSchema = z.object({
+  reason: z.string().min(1).optional(),
+});
+
+export type InterruptRequest = z.infer<typeof InterruptRequestSchema>;
+
+/**
+ * Finalize request schema for POST /v1/finalize.
+ */
+export const FinalizeRequestSchema = z.object({
+  autoPush: z.boolean().optional(),
+  commitMessage: z.string().min(1).optional(),
+});
+
+export type FinalizeRequest = z.infer<typeof FinalizeRequestSchema>;
+
+/**
+ * Standard HTTP headers used by the Lambda MicroVM proxy and runner.
+ */
+export const ProtocolHeaders = {
+  PROXY_AUTH: "x-aws-proxy-auth",
+  PROXY_PORT: "x-aws-proxy-port",
+  LAST_EVENT_ID: "last-event-id",
+} as const;
+
+/**
+ * Documented API route registry for runner and lifecycle contracts.
+ */
+export const PROTOCOL_ROUTES = [
+  { method: "GET", path: "/healthz", port: 8080, description: "Liveness probe" },
+  { method: "GET", path: "/v1/status", port: 8080, description: "Runner status and agent health" },
+  { method: "GET", path: "/v1/manifest", port: 8080, description: "Current run manifest" },
+  { method: "GET", path: "/v1/events", port: 8080, description: "Server-Sent Events stream" },
+  {
+    method: "POST",
+    path: "/v1/prompt",
+    port: 8080,
+    description: "Send user prompt, steer, or follow-up",
+  },
+  { method: "POST", path: "/v1/interrupt", port: 8080, description: "Interrupt active agent turn" },
+  {
+    method: "POST",
+    path: "/v1/abort",
+    port: 8080,
+    description: "Abort current queue and agent turn",
+  },
+  {
+    method: "POST",
+    path: "/v1/finalize",
+    port: 8080,
+    description: "Finalize run, commit/push, and flush manifest",
+  },
+  {
+    method: "GET",
+    path: "/ws/rpc",
+    port: 8080,
+    description: "WebSocket LF-delimited JSONL RPC passthrough",
+  },
+  {
+    method: "GET",
+    path: "/v1/rpc",
+    port: 8080,
+    description: "WebSocket LF-delimited JSONL RPC passthrough (alias)",
+  },
+  {
+    method: "GET",
+    path: "/aws/lambda-microvms/runtime/v1/ready",
+    port: 9000,
+    description: "MicroVM ready lifecycle hook",
+  },
+  {
+    method: "POST",
+    path: "/aws/lambda-microvms/runtime/v1/validate",
+    port: 9000,
+    description: "MicroVM validate lifecycle hook",
+  },
+  {
+    method: "POST",
+    path: "/aws/lambda-microvms/runtime/v1/run",
+    port: 9000,
+    description: "MicroVM run launch hook",
+  },
+  {
+    method: "POST",
+    path: "/aws/lambda-microvms/runtime/v1/resume",
+    port: 9000,
+    description: "MicroVM resume from suspend hook",
+  },
+  {
+    method: "POST",
+    path: "/aws/lambda-microvms/runtime/v1/suspend",
+    port: 9000,
+    description: "MicroVM suspend hook",
+  },
+  {
+    method: "POST",
+    path: "/aws/lambda-microvms/runtime/v1/terminate",
+    port: 9000,
+    description: "MicroVM terminate hook",
+  },
+] as const;

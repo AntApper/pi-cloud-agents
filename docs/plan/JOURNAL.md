@@ -96,11 +96,11 @@ Entry template:
 - aws: none
 - open: none
 
-## 2026-09-06 · t1.2-config · T1.2
-- did: implemented LocalConfig and RepoConfig schemas in `shared/config.ts`, atomic loader/saver with mode 0600 in `core/config.ts` and `extension/config.ts`, and exported JSON schemas.
-- validated: `npm run schemas:gen && git diff --exit-code docs/schemas`, `npm run check` (100 tests green, 0 glyph violations).
-- left: T1.2 complete.
-- next: start `T1.3` (Runner API contract document) or `T1.4` (pi config bundle builder).
+## 2026-09-06 · t1.3-protocol · T1.3
+- did: completed `docs/protocol.md` with port 8080 REST/SSE endpoints, port 9000 MicroVM hooks, LF-delimited JSONL WebSocket rules, proxy auth headers, and JSON schemas.
+- validated: `npm run schemas:gen && git diff --exit-code docs/schemas`, `npm run check` (106 tests green, 0 glyph violations).
+- left: T1.3 complete.
+- next: start `T1.4` (pi config bundle builder).
 - aws: none
 - open: none
 

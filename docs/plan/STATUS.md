@@ -22,7 +22,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 |---|---|---|---|---|---|
 | T1.1 | Protocol and manifest schemas | M | G0 | done | [docs/evidence/T1.1.md](docs/evidence/T1.1.md) |
 | T1.2 | Local and per-repo config schemas + loader | S/M | T1.1 | done | [docs/evidence/T1.2.md](docs/evidence/T1.2.md) |
-| T1.3 | Runner API contract document | S | T1.1 | ready | |
+| T1.3 | Runner API contract document | S | T1.1 | done | [docs/evidence/T1.3.md](docs/evidence/T1.3.md) |
 | T1.4 | pi config bundle builder (`core/pi-config`) | M | T1.1, T0.6 | ready | |
 
 ## Phase 2 — Runner
