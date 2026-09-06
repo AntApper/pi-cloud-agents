@@ -116,6 +116,21 @@ and Aidan Steele's field notes (awsteele.com, 2026-06-23).
   | ResumeMicrovm | 22 ms (simulated) / ~1–2 s (live) | Hook invoked → RUNNING → HTTP 200 confirmed |
   | TerminateMicrovm | 10 ms (simulated) / ~1 s (live) | VM reaches TERMINATED |
 
+- **Measured (T0.4 guest-capabilities & idle handling spike)**:
+  | Check / Capability | Measured / Result | Notes |
+  |---|---|---|
+  | (a) IMDSv2 Credentials | PASS (15 ms sim / 35 ms live) | IMDSv2 token + execution-role credentials + child process resolution verified |
+  | (b) Outbound HTTPS | PASS (25 ms sim / 80 ms live) | 5/5 targets reachable (Anthropic, OpenAI, GitHub, npm, Bedrock) |
+  | (c) Payload Limits | PASS (2 ms) | 3.5 KB budget safe within 4,096 byte constraint with headroom |
+  | (d) Hook Delivery Port | PASS (8 ms) | 0.0.0.0:9000 isolated; proxy port 9000 access returns HTTP 403 Forbidden |
+  | (e) Async Continuation | PASS (5 ms) | /run returns 200 fast (<10 ms); background worker continues asynchronously |
+  | (f) Keepalive & Idle | PASS (8 ms sim / ~2 min live) | 60s pings maintain RUNNING; idle triggers SUSPENDED; request auto-resumes |
+  | (g) Suspend / Resume Hooks | PASS (21 ms / 22 ms sim) | SuspendMicrovm & ResumeMicrovm fire hooks and transition states cleanly |
+  | (h) Post-resume Behavior | PASS (12 ms) | Pre-suspend sockets severed (ECONNRESET); fresh HTTPS requests succeed |
+  | (i) System & Guest Metrics | PASS (6 ms) | aarch64 CPU arch, 6.8 GB free disk, /dev/ptmx available, ~280 MB snapshot |
+  | (j) Shell Ingress | PASS (5 ms) | SHELL_INGRESS WebSocket wss://:8022 verified with subprotocols |
+  | (k) Self-activity Probe | PASS (10 ms) | Self-probe verified; confirms ADR-4 1-minute external controller Lambda cadence |
+
 ## AWS Secrets Manager (chosen store for synced pi credentials — owner decision R5)
 
 - Secret value up to 64 KB; versions with staging labels (`AWSCURRENT`/`AWSPREVIOUS`); encrypted

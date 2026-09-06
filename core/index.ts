@@ -10,4 +10,5 @@ export * from "./aws/cleanup.js";
 export * from "./aws/zip.js";
 export * from "./aws/hello-bundle.js";
 export * from "./aws/hello-microvm.js";
+export * from "./aws/guest-capabilities.js";
 export * from "./credentials.js";

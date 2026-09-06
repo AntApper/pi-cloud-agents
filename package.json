@@ -39,7 +39,8 @@
     "aws:cleanup": "tsx scripts/aws-cleanup.ts",
     "spike:aws-readiness": "tsx scripts/spike/aws-readiness.ts",
     "spike:credential-portability": "tsx scripts/spike/credential-portability.ts",
-    "spike:hello-microvm": "tsx scripts/spike/hello-microvm.ts"
+    "spike:hello-microvm": "tsx scripts/spike/hello-microvm.ts",
+    "spike:guest-capabilities": "tsx scripts/spike/guest-capabilities.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",

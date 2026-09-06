@@ -80,6 +80,14 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t0.4-guest-caps · T0.4
+- did: implemented guest capabilities spike engine (`core/aws/guest-capabilities.ts`), CLI (`scripts/spike/guest-capabilities.ts`), in-VM diagnostics, and unit tests validating checklist (a)–(k) (IMDSv2, egress, 3.5 KB budget, port 9000 isolation, async continuation, keepalive/idle auto-resume, suspend/resume, socket teardown, metrics, shell WS).
+- validated: `npm run spike:guest-capabilities -- --region us-east-1`, `npm run aws:cleanup -- --region us-east-1 --dry-run`, `npm run check` (58 tests green, 0 glyph violations), verified A3, A6, A7.
+- left: T0.4 complete.
+- next: start `T0.5` (pi headless on ARM64 AL2023 + mock LLM spike).
+- aws: none
+- open: none
+
 
 
 
