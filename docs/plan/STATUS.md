@@ -31,7 +31,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 |---|---|---|---|---|---|
 | T2.1 | Lifecycle hook server | M | T1.1 | done | [docs/evidence/T2.1.md](docs/evidence/T2.1.md) |
 | T2.2 | Launch payload, secrets, pi config assembly | M | T2.1, T1.4 | done | [docs/evidence/T2.2.md](docs/evidence/T2.2.md) |
-| T2.3 | Workspace preparation (git + install) | M | T2.2 | ready | |
+| T2.3 | Workspace preparation (git + install) | M | T2.2 | done | [docs/evidence/T2.3.md](docs/evidence/T2.3.md) |
 | T2.4 | pi process manager (RPC bridge) | M | T2.2 | ready | |
 | T2.5a | Runner HTTP API (REST + SSE) | M | T2.4, T1.3 | todo | |
 | T2.5b | Runner WebSocket RPC passthrough | M | T2.5a | todo | |

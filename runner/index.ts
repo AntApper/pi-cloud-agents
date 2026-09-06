@@ -8,3 +8,4 @@ export * from "./logger.js";
 export * from "./secrets.js";
 export * from "./storage.js";
 export * from "./pi-config.js";
+export * from "./workspace.js";
