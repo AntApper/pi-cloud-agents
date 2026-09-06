@@ -292,3 +292,139 @@ describe("CloudFormation Core Stack Security Policies (T3.1a)", () => {
     expect(outputs.ControllerLogGroup).toBeDefined();
   });
 });
+
+describe("CloudFormation Image Stack & Controller (T3.1b)", () => {
+  const imagePath = resolve(process.cwd(), "infra/image.yaml");
+  const template = parseCfnTemplate(imagePath);
+  const resources = (template.Resources ?? {}) as Record<string, CfnResource>;
+  const params = (template.Parameters ?? {}) as Record<string, Record<string, unknown>>;
+  const outputs = (template.Outputs ?? {}) as Record<string, unknown>;
+
+  it("loads and parses infra/image.yaml cleanly", () => {
+    expect(template).toBeDefined();
+    expect(template.AWSTemplateFormatVersion).toBe("2010-09-09");
+    expect(resources).toBeDefined();
+  });
+
+  it("configures all required parameters for image stack", () => {
+    expect(params.ArtifactBucket).toBeDefined();
+    expect(params.RunnerArtifactKey).toBeDefined();
+    expect(params.ControllerArtifactKey).toBeDefined();
+    expect(params.ImageName).toBeDefined();
+    expect(params.MemoryMiB).toBeDefined();
+    expect(params.BuildRoleArn).toBeDefined();
+    expect(params.ExecutionRoleArn).toBeDefined();
+    expect(params.BaseImageArn).toBeDefined();
+    expect(params.BaseImageVersion).toBeDefined();
+    expect(params.ImageLogGroup).toBeDefined();
+  });
+
+  it("configures AWS::Lambda::MicrovmImage with ALL required properties", () => {
+    const image = resources.MicrovmImage;
+    expect(image).toBeDefined();
+    expect(image?.Type).toBe("AWS::Lambda::MicrovmImage");
+
+    const props = image?.Properties ?? {};
+
+    // All required properties must be present
+    expect(props.Name).toBeDefined();
+    expect(props.Description).toBeDefined();
+    expect(props.BaseImageArn).toBeDefined();
+    expect(props.BaseImageVersion).toBeDefined();
+    expect(props.BuildRoleArn).toBeDefined();
+    expect(props.CodeArtifact).toBeDefined();
+    expect(props.CpuConfigurations).toBeDefined();
+    expect(props.AdditionalOsCapabilities).toBeDefined();
+    expect(props.EgressNetworkConnectors).toBeDefined();
+    expect(props.EnvironmentVariables).toBeDefined();
+    expect(props.Hooks).toBeDefined();
+    expect(props.Logging).toBeDefined();
+    expect(props.Resources).toBeDefined();
+    expect(props.Tags).toBeDefined();
+
+    // Verify CPU architecture is ARM_64
+    const cpuConfigs = props.CpuConfigurations as Array<{
+      Architecture: string;
+    }>;
+    expect(cpuConfigs[0]?.Architecture).toBe("ARM_64");
+
+    // Verify Environment Variables
+    const envVars = props.EnvironmentVariables as Array<{
+      Key: string;
+      Value: unknown;
+    }>;
+    const envKeys = envVars.map((e) => e.Key);
+    expect(envKeys).toContain("PI_CLOUD_STACK");
+    expect(envKeys).toContain("PI_CLOUD_BUCKET");
+    expect(envKeys).toContain("HOOK_PORT");
+  });
+
+  it("explicitly configures all hook timeouts (never relying on 1s defaults)", () => {
+    const image = resources.MicrovmImage;
+    const hooks = image?.Properties?.Hooks as Record<string, { TimeoutInSeconds: number }>;
+    expect(hooks).toBeDefined();
+
+    expect(hooks.ReadyHook?.TimeoutInSeconds).toBe(120);
+    expect(hooks.ValidateHook?.TimeoutInSeconds).toBe(120);
+    expect(hooks.RunHook?.TimeoutInSeconds).toBe(30);
+    expect(hooks.ResumeHook?.TimeoutInSeconds).toBe(15);
+    expect(hooks.SuspendHook?.TimeoutInSeconds).toBe(45);
+    expect(hooks.TerminateHook?.TimeoutInSeconds).toBe(45);
+  });
+
+  it("configures Controller Lambda function and IAM role with required permissions", () => {
+    const fn = resources.ControllerFunction;
+    expect(fn).toBeDefined();
+    expect(fn?.Type).toBe("AWS::Lambda::Function");
+
+    const fnProps = fn?.Properties ?? {};
+    expect(fnProps.Runtime).toBe("nodejs22.x");
+    expect(fnProps.Architectures).toEqual(["arm64"]);
+    expect(fnProps.ReservedConcurrentExecutions).toBe(1);
+    expect(fnProps.Timeout).toBe(50);
+
+    const role = resources.ControllerExecutionRole;
+    expect(role).toBeDefined();
+    expect(role?.Type).toBe("AWS::IAM::Role");
+
+    const policies = role?.Properties.Policies as Array<{
+      PolicyName: string;
+      PolicyDocument: { Statement: PolicyStatement[] };
+    }>;
+    const policyDoc = policies?.[0]?.PolicyDocument;
+    const actions = (policyDoc?.Statement ?? []).flatMap((s: PolicyStatement) => {
+      const act = s.Action;
+      return Array.isArray(act) ? act : act ? [act] : [];
+    });
+
+    expect(actions).toContain("lambda:ListMicrovms");
+    expect(actions).toContain("lambda:GetMicrovm");
+    expect(actions).toContain("lambda:SuspendMicrovm");
+    expect(actions).toContain("lambda:TerminateMicrovm");
+    expect(actions).toContain("lambda:CreateMicrovmAuthToken");
+    expect(actions).toContain("s3:GetObject");
+    expect(actions).toContain("s3:PutObject");
+    expect(actions).toContain("secretsmanager:DeleteSecret");
+  });
+
+  it("configures EventBridge 1-minute schedule rule and Lambda permission", () => {
+    const rule = resources.ControllerScheduleRule;
+    expect(rule).toBeDefined();
+    expect(rule?.Type).toBe("AWS::Events::Rule");
+    expect(rule?.Properties.ScheduleExpression).toBe("rate(1 minute)");
+    expect(rule?.Properties.State).toBe("ENABLED");
+
+    const perm = resources.ControllerLambdaPermission;
+    expect(perm).toBeDefined();
+    expect(perm?.Type).toBe("AWS::Lambda::Permission");
+    expect(perm?.Properties.Action).toBe("lambda:InvokeFunction");
+    expect(perm?.Properties.Principal).toBe("events.amazonaws.com");
+  });
+
+  it("exports required image stack outputs", () => {
+    expect(outputs.ImageArn).toBeDefined();
+    expect(outputs.LatestActiveImageVersion).toBeDefined();
+    expect(outputs.ControllerFunctionName).toBeDefined();
+    expect(outputs.ControllerFunctionArn).toBeDefined();
+  });
+});

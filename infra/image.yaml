@@ -1,0 +1,227 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "pi-cloud-agents-image: Lambda MicrovmImage definition and scheduled Controller Lambda"
+
+Parameters:
+  ArtifactBucket:
+    Type: String
+    Description: "Name of the S3 artifact bucket containing runner and controller bundles"
+
+  RunnerArtifactKey:
+    Type: String
+    Description: "S3 key for the runner application artifact (e.g., runner/<sha>.zip)"
+
+  ControllerArtifactKey:
+    Type: String
+    Description: "S3 key for the controller Lambda zip artifact (e.g., controller/<sha>.zip)"
+
+  ImageName:
+    Type: String
+    Default: "pi-cloud-agents-runner"
+    Description: "Name of the MicroVM image"
+
+  MemoryMiB:
+    Type: Number
+    Default: 4096
+    Description: "Memory baseline in MiB for the MicroVM image"
+
+  BuildRoleArn:
+    Type: String
+    Description: "ARN of the IAM Build Role used to create the MicroVM image"
+
+  ExecutionRoleArn:
+    Type: String
+    Description: "ARN of the IAM Execution Role assumed during MicroVM runtime"
+
+  BaseImageArn:
+    Type: String
+    Description: "ARN of the managed base MicroVM image (e.g., arn:aws:lambda:<region>:aws:microvm-image:al2023-1)"
+
+  BaseImageVersion:
+    Type: String
+    Description: "Version identifier of the managed base MicroVM image"
+
+  ImageLogGroup:
+    Type: String
+    Description: "Name of the CloudWatch log group for MicroVM image build and guest execution"
+
+Resources:
+  MicrovmImage:
+    Type: "AWS::Lambda::MicrovmImage"
+    Properties:
+      Name: !Ref ImageName
+      Description: !Sub "pi-cloud-agents runner image for stack ${AWS::StackName}"
+      BaseImageArn: !Ref BaseImageArn
+      BaseImageVersion: !Ref BaseImageVersion
+      BuildRoleArn: !Ref BuildRoleArn
+      CodeArtifact:
+        Uri: !Sub "s3://${ArtifactBucket}/${RunnerArtifactKey}"
+      CpuConfigurations:
+        - Architecture: "ARM_64"
+      AdditionalOsCapabilities: []
+      EgressNetworkConnectors: []
+      EnvironmentVariables:
+        - Key: "PI_CLOUD_STACK"
+          Value: !Sub "${AWS::StackName}"
+        - Key: "PI_CLOUD_BUCKET"
+          Value: !Ref ArtifactBucket
+        - Key: "HOOK_PORT"
+          Value: "9000"
+      Hooks:
+        ReadyHook:
+          TimeoutInSeconds: 120
+        ValidateHook:
+          TimeoutInSeconds: 120
+        RunHook:
+          TimeoutInSeconds: 30
+        ResumeHook:
+          TimeoutInSeconds: 15
+        SuspendHook:
+          TimeoutInSeconds: 45
+        TerminateHook:
+          TimeoutInSeconds: 45
+      Logging:
+        CloudWatch:
+          LogGroup: !Ref ImageLogGroup
+      Resources:
+        - MinimumMemoryInMiB: !Ref MemoryMiB
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  ControllerExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub "pi-cloud-agents-${AWS::StackName}-controller-role-${AWS::Region}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+            Condition:
+              StringEquals:
+                "aws:SourceAccount": !Sub "${AWS::AccountId}"
+      Policies:
+        - PolicyName: ControllerPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CloudWatchLogs
+                Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/pi-cloud-agents/${AWS::StackName}/controller"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/pi-cloud-agents-${AWS::StackName}-controller*"
+              - Sid: MicrovmLifecycleManagement
+                Effect: Allow
+                Action:
+                  - "lambda:ListMicrovms"
+                  - "lambda:GetMicrovm"
+                  - "lambda:SuspendMicrovm"
+                  - "lambda:TerminateMicrovm"
+                  - "lambda:CreateMicrovmAuthToken"
+                Resource:
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm:*"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm-image:${ImageName}"
+                  - !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:microvm-image:${ImageName}:*"
+              - Sid: S3ManifestAndControllerStorage
+                Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:DeleteObject"
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}/runs/*"
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}/index/*"
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}/controller/*"
+              - Sid: S3BucketList
+                Effect: Allow
+                Action:
+                  - "s3:ListBucket"
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactBucket}"
+                Condition:
+                  StringLike:
+                    "s3:prefix":
+                      - "runs/*"
+                      - "index/*"
+                      - "controller/*"
+              - Sid: JanitorSecretCleanup
+                Effect: Allow
+                Action:
+                  - "secretsmanager:DeleteSecret"
+                Resource:
+                  - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:pi-cloud-agents/${AWS::StackName}/runs/*"
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  ControllerFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub "pi-cloud-agents-${AWS::StackName}-controller"
+      Description: "Controller Lambda managing keepalive, idle policies, and cleanup for pi-cloud-agents"
+      Runtime: "nodejs22.x"
+      Architectures:
+        - "arm64"
+      Handler: "index.handler"
+      MemorySize: 256
+      Timeout: 50
+      ReservedConcurrentExecutions: 1
+      Code:
+        S3Bucket: !Ref ArtifactBucket
+        S3Key: !Ref ControllerArtifactKey
+      Environment:
+        Variables:
+          PI_CLOUD_STACK: !Sub "${AWS::StackName}"
+          PI_CLOUD_BUCKET: !Ref ArtifactBucket
+          PI_CLOUD_IMAGE_NAME: !Ref ImageName
+          PI_CLOUD_REGION: !Sub "${AWS::Region}"
+      Role: !GetAtt ControllerExecutionRole.Arn
+      Tags:
+        - Key: "pi-cloud-agents:managed"
+          Value: "true"
+        - Key: "pi-cloud-agents:stack"
+          Value: !Sub "${AWS::StackName}"
+
+  ControllerScheduleRule:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name: !Sub "pi-cloud-agents-${AWS::StackName}-controller-cron"
+      Description: "Triggers the pi-cloud-agents controller Lambda every minute"
+      ScheduleExpression: "rate(1 minute)"
+      State: "ENABLED"
+      Targets:
+        - Id: "PiCloudAgentsControllerTarget"
+          Arn: !GetAtt ControllerFunction.Arn
+
+  ControllerLambdaPermission:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !GetAtt ControllerFunction.Arn
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt ControllerScheduleRule.Arn
+
+Outputs:
+  ImageArn:
+    Description: "ARN of the AWS::Lambda::MicrovmImage resource"
+    Value: !GetAtt MicrovmImage.ImageArn
+  LatestActiveImageVersion:
+    Description: "Latest active version identifier of the MicroVM image"
+    Value: !GetAtt MicrovmImage.LatestActiveImageVersion
+  ControllerFunctionName:
+    Description: "Name of the Controller Lambda function"
+    Value: !Ref ControllerFunction
+  ControllerFunctionArn:
+    Description: "ARN of the Controller Lambda function"
+    Value: !GetAtt ControllerFunction.Arn
