@@ -18,6 +18,7 @@ import path from "node:path";
 import { formatConfigView, getConfigValue, setConfigValue } from "../core/config-editor.js";
 import { loadLocalConfig, parseConfigWithSchema, saveLocalConfig } from "../core/config.js";
 import { type StoredCredential, parseAuthJson, resolvePiAgentDir } from "../core/credentials.js";
+import { executeCloudDestroy, executeCloudUpdate } from "../core/lifecycle-ops.js";
 import { executeSetup } from "../core/setup/run.js";
 import { runSetupWizard } from "../core/setup/steps.js";
 import { syncPiConfig } from "../core/sync.js";
@@ -487,8 +488,26 @@ export async function runCli(argv = process.argv): Promise<number> {
       }
 
       case "update": {
-        console.log("Checking for runner image updates...");
-        console.log(`Image is up to date with package version ${CLI_VERSION}.`);
+        const dryRun = Boolean(parsed.flags["dry-run"]);
+        const force = Boolean(parsed.flags.force || parsed.flags.f);
+        const config = loadLocalConfig();
+
+        console.log("Checking for runner image updates and configuration drift...");
+        const result = await executeCloudUpdate({
+          config,
+          dryRun,
+          force,
+          onProgress: (_step, detail) => {
+            console.log(`[update] ${detail}`);
+          },
+        });
+
+        if (jsonMode) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n✓ ${result.message}`);
+          if (result.newVersion) console.log(`Active Image Version: ${result.newVersion}`);
+        }
         return 0;
       }
 
@@ -509,7 +528,23 @@ export async function runCli(argv = process.argv): Promise<number> {
         }
 
         console.log(`Tearing down stack '${config.stackName}'...`);
-        console.log("Infrastructure teardown complete.");
+        const result = await executeCloudDestroy({
+          config,
+          force: true,
+          deleteLocalConfig: true,
+          onProgress: (_step, detail) => {
+            console.log(`[destroy] ${detail}`);
+          },
+        });
+
+        if (jsonMode) {
+          console.log(JSON.stringify(result, null, 2));
+        } else {
+          console.log(`\n✓ ${result.message}`);
+          console.log(`Terminated MicroVMs: ${result.terminatedVmsCount}`);
+          console.log(`Deleted Secrets:      ${result.deletedSecretsCount}`);
+          console.log(`Deleted Stacks:       ${result.deletedStacks.join(", ")}`);
+        }
         return 0;
       }
 

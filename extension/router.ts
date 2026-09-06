@@ -11,6 +11,7 @@ import {
   handleCloudStopCommand,
   handleCloudSuspendCommand,
 } from "./commands/controls.js";
+import { handleCloudDestroyCommand, handleCloudUpdateCommand } from "./commands/lifecycle-ops.js";
 import { handleCloudListCommand } from "./commands/list.js";
 import { handleCloudNewCommand } from "./commands/new.js";
 import { handleCloudSetupCommand } from "./commands/setup.js";
@@ -308,6 +309,14 @@ export async function routeCloudCommand(
 
   if (sub === "shell") {
     return handleCloudShellCommand(subArgs, ctx);
+  }
+
+  if (sub === "update") {
+    return handleCloudUpdateCommand(subArgs, ctx);
+  }
+
+  if (sub === "destroy") {
+    return handleCloudDestroyCommand(subArgs, ctx);
   }
 
   const knownSub = CLOUD_SUBCOMMANDS.find((cmd) => cmd.name === sub);

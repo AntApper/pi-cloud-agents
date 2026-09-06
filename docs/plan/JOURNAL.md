@@ -160,6 +160,15 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t4.6-t4.8-t4.10 · T4.6, T4.8, T4.10
+- did: implemented /cloud list & /cloud status detail card (T4.6), cloud control commands stop/suspend/resume/logs/pr/shell (T4.8), and /cloud update & /cloud destroy lifecycle operations (T4.10).
+- validated: `npm run check` (46 test files / 396 tests green, 0 glyph violations), full typecheck and Biome lint passing.
+- left: T4.6, T4.8, and T4.10 complete.
+- next: start `T4.7a` (attach mirror session core), `T4.9` (cloud_agent tool), `T4.14` (dashboard), or `T4.12` (cloud open).
+- aws: none
+- open: none
+
+
 
 
 

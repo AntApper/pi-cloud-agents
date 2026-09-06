@@ -534,11 +534,11 @@ export class MicrovmImageManager {
         createdAt = versionDesc.createdAt ?? createdAt;
         updatedAt = versionDesc.updatedAt ?? updatedAt;
 
-        // Extract runnerSha from S3 URI/key, tags, or environment variables
+        // Extract runnerSha from S3 URI/key, description JSON, tags, or environment variables
         const artifactUri =
-          versionDesc.codeArtifact && "uri" in versionDesc.codeArtifact
-            ? (versionDesc.codeArtifact.uri ?? "")
-            : "";
+          (versionDesc.codeArtifact as { s3Uri?: string; uri?: string } | undefined)?.s3Uri ||
+          (versionDesc.codeArtifact as { s3Uri?: string; uri?: string } | undefined)?.uri ||
+          "";
         const uriMatch = artifactUri.match(/runner\/([a-f0-9]{64})\.zip/i);
         if (uriMatch) {
           runnerSha = uriMatch[1];
@@ -546,6 +546,21 @@ export class MicrovmImageManager {
           runnerSha = versionDesc.tags["pi-cloud-agents:runner-sha"];
         } else if (versionDesc.environmentVariables?.PI_CLOUD_RUNNER_SHA) {
           runnerSha = versionDesc.environmentVariables.PI_CLOUD_RUNNER_SHA;
+        }
+
+        // Also check version description JSON
+        if (versionDesc.description) {
+          try {
+            const parsedDesc = JSON.parse(versionDesc.description);
+            if (!runnerSha && parsedDesc.manifestSha256) {
+              runnerSha = parsedDesc.manifestSha256;
+            }
+            if (!piVersion && parsedDesc.piVersion) {
+              piVersion = parsedDesc.piVersion;
+            }
+          } catch {
+            // Not JSON description
+          }
         }
 
         // Extract piVersion from tags or environment variables
