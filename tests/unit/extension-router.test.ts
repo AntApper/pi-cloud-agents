@@ -124,9 +124,8 @@ describe("Extension Router (T4.1a)", () => {
       const notify = vi.fn();
       const ctx = { hasUI: true, ui: { notify } };
 
-      const res = await routeCloudCommand("attach run-12345", ctx);
-      expect(res.subcommand).toBe("attach");
-      expect(res.args).toEqual(["run-12345"]);
+      const res = await routeCloudCommand("dashboard", ctx);
+      expect(res.subcommand).toBe("dashboard");
       expect(res.output).toContain("stubbed in T4.1a");
       expect(res.handled).toBe(true);
     });

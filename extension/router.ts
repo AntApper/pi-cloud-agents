@@ -2,6 +2,7 @@
  * Command router and completion engine for `/cloud <sub> [args]`.
  */
 
+import { handleCloudAttachCommand, handleCloudDetachCommand } from "./commands/attach.js";
 import { handleCloudConfigCommand } from "./commands/config.js";
 import {
   handleCloudLogsCommand,
@@ -285,6 +286,14 @@ export async function routeCloudCommand(
 
   if (sub === "status") {
     return handleCloudStatusCommand(subArgs, ctx);
+  }
+
+  if (sub === "attach") {
+    return handleCloudAttachCommand(subArgs, ctx);
+  }
+
+  if (sub === "detach") {
+    return handleCloudDetachCommand(subArgs, ctx);
   }
 
   if (sub === "stop") {

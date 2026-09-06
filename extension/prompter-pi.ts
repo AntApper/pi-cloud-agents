@@ -19,7 +19,21 @@ export interface PiUiContext {
     input?: unknown;
     notify?: (message: string, type?: "info" | "warning" | "error") => void;
     setStatus?: (id: string, text: string) => void;
+    setWidget?: (id: string, widget?: string[] | unknown, options?: unknown) => void;
+    setFooter?: (content: unknown) => void;
+    custom?: unknown;
   };
+  newSession?: (options?: { name?: string; [key: string]: unknown }) => Promise<
+    PiUiContext | undefined
+  >;
+  switchSession?: (pathOrId?: string) => Promise<PiUiContext | undefined>;
+  session?: {
+    id?: string;
+    name?: string;
+    path?: string;
+    [key: string]: unknown;
+  };
+  modelRegistry?: unknown;
 }
 
 export class PiPrompter implements Prompter {
