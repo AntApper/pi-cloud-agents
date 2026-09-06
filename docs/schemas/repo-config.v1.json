@@ -1,0 +1,55 @@
+{
+  "$ref": "#/definitions/RepoConfig",
+  "definitions": {
+    "RepoConfig": {
+      "type": "object",
+      "properties": {
+        "install": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "string",
+          "minLength": 1
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "secrets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:\\/pi-cloud-agents\\/[a-zA-Z0-9_.-]+\\/[a-zA-Z0-9_./-]+|[a-zA-Z0-9_.-]+)$"
+          }
+        },
+        "model": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "provider",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "memoryMiB": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

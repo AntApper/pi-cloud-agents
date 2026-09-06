@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { LocalConfigSchema, RepoConfigSchema } from "../shared/config.js";
 import {
   ErrorResponseSchema,
   LaunchPayloadSchema,
@@ -39,6 +40,16 @@ const targets: SchemaTarget[] = [
     name: "ErrorResponse",
     filename: "error-response.v1.json",
     schema: ErrorResponseSchema,
+  },
+  {
+    name: "LocalConfig",
+    filename: "local-config.v1.json",
+    schema: LocalConfigSchema,
+  },
+  {
+    name: "RepoConfig",
+    filename: "repo-config.v1.json",
+    schema: RepoConfigSchema,
   },
 ];
 

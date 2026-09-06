@@ -96,11 +96,11 @@ Entry template:
 - aws: none
 - open: none
 
-## 2026-09-06 · t1.1-protocol · T1.1
-- did: verified G0 checklist; implemented Zod schemas for LaunchPayload, RunManifest, RunnerStatus, SSE/error envelopes in `shared/protocol.ts`, JSON schema generator `scripts/gen-schemas.ts`, and `docs/protocol.md` spec.
-- validated: `npm run schemas:gen && git diff --exit-code docs/schemas`, `npm run check` (86 tests green, 0 forbidden glyphs).
-- left: G0 passed and T1.1 complete.
-- next: start `T1.2` (local and per-repo config schemas), `T1.3` (Runner API contract doc), `T1.4` (pi config bundle builder), or `T2.1` (lifecycle hook server).
+## 2026-09-06 · t1.2-config · T1.2
+- did: implemented LocalConfig and RepoConfig schemas in `shared/config.ts`, atomic loader/saver with mode 0600 in `core/config.ts` and `extension/config.ts`, and exported JSON schemas.
+- validated: `npm run schemas:gen && git diff --exit-code docs/schemas`, `npm run check` (100 tests green, 0 glyph violations).
+- left: T1.2 complete.
+- next: start `T1.3` (Runner API contract document) or `T1.4` (pi config bundle builder).
 - aws: none
 - open: none
 

@@ -13,3 +13,4 @@ export * from "./aws/hello-microvm.js";
 export * from "./aws/guest-capabilities.js";
 export * from "./aws/pi-headless.js";
 export * from "./credentials.js";
+export * from "./config.js";

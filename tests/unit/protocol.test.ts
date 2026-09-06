@@ -296,7 +296,7 @@ describe("SSE Envelope and Error Response schemas", () => {
 describe("JSON Schema generation and drift detection", () => {
   it("generates expected schema files in docs/schemas/", () => {
     const generated = generateSchemas();
-    expect(generated.length).toBe(4);
+    expect(generated.length).toBe(6);
 
     for (const file of generated) {
       const content = readFileSync(file, "utf8");

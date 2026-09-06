@@ -1,0 +1,202 @@
+{
+  "$ref": "#/definitions/LocalConfig",
+  "definitions": {
+    "LocalConfig": {
+      "type": "object",
+      "properties": {
+        "aws": {
+          "type": "object",
+          "properties": {
+            "profile": {
+              "type": "string",
+              "minLength": 1
+            },
+            "region": {
+              "type": "string",
+              "minLength": 1,
+              "default": "us-east-1"
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "region": "us-east-1"
+          }
+        },
+        "stackName": {
+          "type": "string",
+          "minLength": 1,
+          "default": "pi-cloud-agents-core"
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "default": "pi-cloud-agents-runner"
+            },
+            "memoryMiB": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "default": 4096
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "name": "pi-cloud-agents-runner",
+            "memoryMiB": 4096
+          }
+        },
+        "defaults": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "object",
+              "properties": {
+                "provider": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "provider",
+                "id"
+              ],
+              "additionalProperties": false,
+              "default": {
+                "provider": "anthropic",
+                "id": "claude-sonnet-4-6"
+              }
+            },
+            "maxDurationHours": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 8,
+              "default": 4
+            },
+            "idle": {
+              "type": "object",
+              "properties": {
+                "suspendAfterMin": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 15
+                },
+                "terminateAfterSuspendedMin": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "default": 120
+                }
+              },
+              "additionalProperties": false,
+              "default": {
+                "suspendAfterMin": 15,
+                "terminateAfterSuspendedMin": 120
+              }
+            },
+            "maxConcurrent": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "default": 3
+            },
+            "archiveRetentionDays": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 30
+            },
+            "controllerCadenceMin": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "default": 1
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "model": {
+              "provider": "anthropic",
+              "id": "claude-sonnet-4-6"
+            },
+            "maxDurationHours": 4,
+            "idle": {
+              "suspendAfterMin": 15,
+              "terminateAfterSuspendedMin": 120
+            },
+            "maxConcurrent": 3,
+            "archiveRetentionDays": 30,
+            "controllerCadenceMin": 1
+          }
+        },
+        "providers": {
+          "type": "object",
+          "properties": {
+            "synced": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "default": []
+            },
+            "oauthOptIn": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "default": []
+            },
+            "bedrockRole": {
+              "type": "boolean",
+              "default": false
+            },
+            "syncedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "synced": [],
+            "oauthOptIn": [],
+            "bedrockRole": false
+          }
+        },
+        "github": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "secret",
+                "none"
+              ],
+              "default": "none"
+            },
+            "secretName": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false,
+          "default": {
+            "mode": "none"
+          }
+        },
+        "kmsKeyArn": {
+          "type": "string",
+          "minLength": 1
+        },
+        "egressConnectorArn": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
