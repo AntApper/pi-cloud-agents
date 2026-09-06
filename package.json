@@ -7,13 +7,9 @@
   "bin": {
     "pi-cloud-agents": "./cli/main.js"
   },
-  "keywords": [
-    "pi-package"
-  ],
+  "keywords": ["pi-package"],
   "pi": {
-    "extensions": [
-      "./extension/index.ts"
-    ]
+    "extensions": ["./extension/index.ts"]
   },
   "engines": {
     "node": ">=22.19"
