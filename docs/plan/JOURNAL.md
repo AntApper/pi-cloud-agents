@@ -136,6 +136,14 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · g3-t4.1a-t4.1b-t4.2 · G3, T4.1a, T4.1b, T4.2
+- did: implemented Gate G3 smoke engine & script (`core/aws/infra-smoke.ts`, `scripts/e2e-aws.ts`, `tests/e2e/aws-infra.test.ts`), extension router & doctor (`extension/router.ts`, `extension/doctor.ts`), UI kit (`extension/ui/kit.ts`), and AWS client factory with error mapping (`core/aws/clients.ts`, `extension/aws/clients.ts`).
+- validated: `npm run e2e:aws -- --simulate` (pass), `npm run check` (35 test files / 316 tests green, 0 glyph violations), pi RPC get_commands and doctor verified.
+- left: Gate G3, T4.1a, T4.1b, and T4.2 complete.
+- next: start `T4.3a` (/cloud setup wizard UI + config) or `T4.11` (/cloud config settings).
+- aws: none
+- open: none
+
 
 
 
