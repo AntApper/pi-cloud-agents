@@ -20,6 +20,10 @@ describe("T2.9 Build Artifacts & Deterministic Image ZIP", () => {
     expect(summary.imageZip.sizeBytes).toBeLessThan(MAX_IMAGE_ZIP_BYTES);
     expect(summary.imageZip.sizeBytes).toBeGreaterThan(10000); // at least 10KB
 
+    const controllerZipStats = fs.statSync(summary.controllerZipPath);
+    expect(controllerZipStats.size).toBeLessThan(2 * 1024 * 1024); // controller.zip < 2 MB
+    expect(controllerZipStats.size).toBeGreaterThan(1000); // at least 1KB
+
     // Verify manifest contents
     const manifest = JSON.parse(fs.readFileSync(summary.imageZip.manifestPath, "utf8"));
     expect(manifest.sha256).toBe(summary.imageZip.sha256);

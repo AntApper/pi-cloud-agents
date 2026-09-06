@@ -128,6 +128,15 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t3.3-t3.5-image-controller · T3.3, T3.5
+- did: implemented Lambda MicroVM image manager (`core/aws/image.ts`), Controller Lambda handler (`infra/controller/handler.ts`), and build bundling (`scripts/build.ts` -> `dist/controller.zip`).
+- validated: `npm run build` (controller.zip 4.3 KB), `npm run check` (31 test files / 274 tests green, 0 glyph violations), `npm run test:integration` (pass).
+- left: T3.3 and T3.5 complete; Phase 3 infrastructure tasks are fully finished.
+- next: proceed to Gate `G3` (live infra smoke [AWS]) or start Phase 4 extension tasks (`T4.1a`).
+- aws: none
+- open: none
+
+
 
 
 

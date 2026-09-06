@@ -1,7 +1,7 @@
 /**
- * Build orchestrator for pi-cloud-agents (T2.9).
+ * Build orchestrator for pi-cloud-agents (T2.9 & T3.5).
  *  1. Bundles runner/main.ts -> dist/runner/index.js (esbuild, Node 22, ESM, sourcemap)
- *  2. Builds dist/controller.zip placeholder
+ *  2. Bundles infra/controller/handler.ts -> dist/controller/index.js + dist/controller.zip (< 2 MB)
  *  3. Builds dist/image/app.zip (deterministic, < 5 MB) + dist/image/manifest.json
  */
 
@@ -32,10 +32,12 @@ export interface BuildSummary {
 export async function buildAll(): Promise<BuildSummary> {
   const distDir = path.join(REPO_ROOT, "dist");
   const runnerDir = path.join(distDir, "runner");
+  const controllerDir = path.join(distDir, "controller");
   const imageDir = path.join(distDir, "image");
 
   fs.mkdirSync(distDir, { recursive: true });
   fs.mkdirSync(runnerDir, { recursive: true });
+  fs.mkdirSync(controllerDir, { recursive: true });
   fs.mkdirSync(imageDir, { recursive: true });
 
   const runnerEntry = path.join(REPO_ROOT, "runner", "main.ts");
@@ -56,20 +58,28 @@ export async function buildAll(): Promise<BuildSummary> {
     logLevel: "warning",
   });
 
-  // 2. Build placeholder dist/controller.zip
-  const controllerHandlerCode = [
-    "export const handler = async (event) => {",
-    '  console.log("pi-cloud-agents controller placeholder", event);',
-    '  return { statusCode: 200, body: JSON.stringify({ status: "ok" }) };',
-    "};",
-    "",
-  ].join("\n");
+  // 2. Bundle controller Lambda using esbuild
+  const controllerEntry = path.join(REPO_ROOT, "infra", "controller", "handler.ts");
+  const controllerOut = path.join(controllerDir, "index.js");
 
+  await esbuild.build({
+    entryPoints: [controllerEntry],
+    outfile: controllerOut,
+    bundle: true,
+    platform: "node",
+    target: "node22",
+    format: "esm",
+    external: ["@aws-sdk/*"],
+    sourcemap: "external",
+    logLevel: "warning",
+  });
+
+  const controllerCode = fs.readFileSync(controllerOut);
   const controllerZipBuffer = createDeterministicZip(
     [
       {
         name: "index.js",
-        content: controllerHandlerCode,
+        content: controllerCode,
         mode: 0o644,
         mtime: DETERMINISTIC_BUILD_DATE,
       },
