@@ -21,6 +21,7 @@ import {
 import type { Logger } from "./logger.js";
 import type { PiProcessManager } from "./pi-process.js";
 import type { RunStateMachine } from "./state.js";
+import { WebSocketRpcBridge } from "./ws-rpc.js";
 
 export { PROTOCOL_ROUTES };
 
@@ -34,6 +35,7 @@ export interface RunnerApiOptions {
   host?: string;
   runStateMachine?: RunStateMachine;
   piProcess?: PiProcessManager;
+  wsRpcBridge?: WebSocketRpcBridge;
   logger?: Logger;
   heartbeatIntervalMs?: number;
   maxBodyBytes?: number;
@@ -54,6 +56,7 @@ export class RunnerApiServer {
   private readonly logger?: Logger;
   private readonly heartbeatIntervalMs: number;
   private readonly maxBodyBytes: number;
+  private readonly wsBridge: WebSocketRpcBridge;
 
   private server: http.Server | null = null;
   private isListening = false;
@@ -73,6 +76,12 @@ export class RunnerApiServer {
     this.logger = options.logger;
     this.heartbeatIntervalMs = options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
     this.maxBodyBytes = options.maxBodyBytes ?? MAX_API_BODY_BYTES;
+    this.wsBridge =
+      options.wsRpcBridge ??
+      new WebSocketRpcBridge({
+        piProcess: options.piProcess,
+        logger: options.logger,
+      });
 
     this.bindPiProcessEvents();
   }
@@ -136,7 +145,15 @@ export class RunnerApiServer {
   }
 
   public getActiveConnectionsCount(): number {
-    return this.activeSockets.size + this.activeSseResponses.size;
+    return (
+      this.activeSockets.size +
+      this.activeSseResponses.size +
+      this.wsBridge.getConnectedClientsCount()
+    );
+  }
+
+  public getWsBridge(): WebSocketRpcBridge {
+    return this.wsBridge;
   }
 
   public getPort(): number {
@@ -185,6 +202,8 @@ export class RunnerApiServer {
       });
     });
 
+    this.wsBridge.attachServer(this.server);
+
     return new Promise((resolve, reject) => {
       this.server?.listen(targetPort, targetHost, () => {
         this.isListening = true;
@@ -205,6 +224,9 @@ export class RunnerApiServer {
    */
   public async close(): Promise<void> {
     if (!this.server || !this.isListening) return;
+
+    // Close WebSocket bridge
+    await this.wsBridge.close().catch(() => {});
 
     // Close all SSE streams
     for (const res of this.activeSseResponses) {

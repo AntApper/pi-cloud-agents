@@ -12,3 +12,4 @@ export * from "./workspace.js";
 export * from "./pi-process.js";
 export * from "./state.js";
 export * from "./api.js";
+export * from "./ws-rpc.js";
