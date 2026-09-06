@@ -112,6 +112,15 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t2.8-g2-t2.9 · T2.8, G2, T2.9
+- did: implemented runner entrypoint (`runner/main.ts`), local dev harness & client (`scripts/dev/`), zero-cost e2e runner (`scripts/e2e-local.ts`), final `image/Dockerfile`, and deterministic build pipeline (`scripts/build.ts`, `scripts/build-image-zip.ts`).
+- validated: `npm run e2e:local` (pass, zero secrets verified), `npm run check` (26 test files / 209 tests green), `npm run test:integration` (pass), `npm pack --dry-run` (artifacts packaged). Gate G2 passed.
+- left: T2.8, Gate G2, and T2.9 complete. Phase 2 is now fully finished.
+- next: start Phase 3 (`T3.1a` CloudFormation core stack) or Phase 4 skeleton (`T4.1a` Extension skeleton).
+- aws: none
+- open: none
+
+
 
 
 

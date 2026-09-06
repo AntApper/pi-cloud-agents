@@ -34,7 +34,7 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "schemas:gen": "tsx scripts/gen-schemas.ts",
-    "build": "node scripts/build.js",
+    "build": "tsx scripts/build.ts",
     "e2e:local": "tsx scripts/e2e-local.ts",
     "e2e:aws": "node scripts/e2e-aws.js",
     "aws:cleanup": "tsx scripts/aws-cleanup.ts",

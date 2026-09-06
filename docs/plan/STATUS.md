@@ -39,8 +39,8 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T2.7 | Lifecycle policy (idle reporting, finalize, resume recovery) | M | T2.5a, T2.6 | done | [docs/evidence/T2.7.md](docs/evidence/T2.7.md) |
 | T2.10 | Runner metrics and lifecycle timeline | M | T2.5a, T2.6 | done | [docs/evidence/T2.10.md](docs/evidence/T2.10.md) |
 | T2.8 | Local harness, mock LLM, e2e:local | M | T2.3, T2.5b, T2.7, T2.10 | done | [docs/evidence/T2.8.md](docs/evidence/T2.8.md) |
-| G2 | Gate: local end-to-end run | S | T2.8 | pending | |
-| T2.9 | Runner bundle, Dockerfile, image zip | M | G2, T0.5 | todo | |
+| G2 | Gate: local end-to-end run | S | T2.8 | passed | Phase 2 complete, local e2e run and zero secrets verified |
+| T2.9 | Runner bundle, Dockerfile, image zip | M | G2, T0.5 | done | [docs/evidence/T2.9.md](docs/evidence/T2.9.md) |
 
 ## Phase 3 — Infrastructure
 
@@ -58,7 +58,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T4.1a | Extension skeleton, router, doctor | M | G2 | todo | |
+| T4.1a | Extension skeleton, router, doctor | M | G2 | ready | |
 | T4.1b | UI kit and style compliance (no-emoji lint) | M | T4.1a | todo | |
 | T4.2 | AWS client factory and error mapping | S/M | T1.2 | ready | |
 | T4.3a | Setup wizard: quick setup default + custom | M | T4.1a, T4.1b, T4.2, T3.4 | todo | |
