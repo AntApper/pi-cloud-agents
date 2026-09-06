@@ -3,3 +3,7 @@
  * NOTE: Must not import @earendil-works/pi-coding-agent at runtime.
  */
 export const CORE_VERSION = "0.1.0";
+
+export * from "./aws/mask.js";
+export * from "./aws/readiness.js";
+export * from "./aws/cleanup.js";

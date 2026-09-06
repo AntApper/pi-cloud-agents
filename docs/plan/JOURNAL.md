@@ -56,3 +56,12 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t0.2-readiness · T0.2
+- did: implemented AWS readiness probe (`scripts/spike/aws-readiness.ts`) and kill-switch (`scripts/aws-cleanup.ts`) with account masking, Unicode table renderers, and full test suite.
+- validated: `npm run spike:aws-readiness -- --region us-east-1`, `npm run aws:cleanup -- --region us-east-1 --dry-run`, `npm run check` (19 tests green, 0 forbidden glyphs).
+- left: T0.2 complete.
+- next: start `T0.3` (hello MicroVM spike) or `T0.6` (pi credential portability spike).
+- aws: none
+- open: none
+
+

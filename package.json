@@ -36,8 +36,8 @@
     "build": "node scripts/build.js",
     "e2e:local": "node scripts/e2e-local.js",
     "e2e:aws": "node scripts/e2e-aws.js",
-    "aws:cleanup": "node scripts/aws-cleanup.js",
-    "spike:aws-readiness": "node scripts/spike/aws-readiness.js",
+    "aws:cleanup": "tsx scripts/aws-cleanup.ts",
+    "spike:aws-readiness": "tsx scripts/spike/aws-readiness.ts",
     "spike:hello-microvm": "node scripts/spike/hello-microvm.js"
   },
   "peerDependencies": {
@@ -61,6 +61,13 @@
     }
   },
   "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1127.0",
+    "@aws-sdk/client-lambda-microvms": "^3.1127.0",
+    "@aws-sdk/client-s3": "^3.1127.0",
+    "@aws-sdk/client-secrets-manager": "^3.1127.0",
+    "@aws-sdk/client-service-quotas": "^3.1127.0",
+    "@aws-sdk/client-ssm": "^3.1127.0",
+    "@aws-sdk/client-sts": "^3.1127.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -71,6 +78,7 @@
     "@sinclair/typebox": "^0.34.28",
     "@types/node": "^22.13.9",
     "esbuild": "^0.25.0",
+    "tsx": "^4.23.13",
     "typebox": "^1.3.28",
     "typescript": "^5.8.2",
     "vitest": "^3.0.7"
