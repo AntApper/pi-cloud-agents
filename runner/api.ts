@@ -19,6 +19,7 @@ import {
   RunnerStatusSchema,
 } from "../shared/protocol.js";
 import type { Logger } from "./logger.js";
+import type { MetricsCollector } from "./metrics.js";
 import type { PiProcessManager } from "./pi-process.js";
 import type { RunStateMachine } from "./state.js";
 import { WebSocketRpcBridge } from "./ws-rpc.js";
@@ -36,6 +37,7 @@ export interface RunnerApiOptions {
   runStateMachine?: RunStateMachine;
   piProcess?: PiProcessManager;
   wsRpcBridge?: WebSocketRpcBridge;
+  metricsCollector?: MetricsCollector;
   logger?: Logger;
   heartbeatIntervalMs?: number;
   maxBodyBytes?: number;
@@ -516,6 +518,11 @@ export class RunnerApiServer {
   }
 
   private async handleGetMetrics(res: http.ServerResponse): Promise<void> {
+    if (this.options.metricsCollector) {
+      this.sendJson(res, 200, this.options.metricsCollector.getFullMetrics());
+      return;
+    }
+
     if (this.options.getMetrics) {
       try {
         const metrics = await this.options.getMetrics();

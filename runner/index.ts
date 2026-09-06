@@ -14,3 +14,4 @@ export * from "./state.js";
 export * from "./api.js";
 export * from "./ws-rpc.js";
 export * from "./lifecycle.js";
+export * from "./metrics.js";

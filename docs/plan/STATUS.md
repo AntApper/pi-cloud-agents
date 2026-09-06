@@ -37,8 +37,8 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T2.5b | Runner WebSocket RPC passthrough | M | T2.5a | done | [docs/evidence/T2.5b.md](docs/evidence/T2.5b.md) |
 | T2.6 | Run state machine and persistence | M | T2.2 | done | [docs/evidence/T2.6.md](docs/evidence/T2.6.md) |
 | T2.7 | Lifecycle policy (idle reporting, finalize, resume recovery) | M | T2.5a, T2.6 | done | [docs/evidence/T2.7.md](docs/evidence/T2.7.md) |
-| T2.10 | Runner metrics and lifecycle timeline | M | T2.5a, T2.6 | ready | |
-| T2.8 | Local harness, mock LLM, e2e:local | M | T2.3, T2.5b, T2.7, T2.10 | todo | |
+| T2.10 | Runner metrics and lifecycle timeline | M | T2.5a, T2.6 | done | [docs/evidence/T2.10.md](docs/evidence/T2.10.md) |
+| T2.8 | Local harness, mock LLM, e2e:local | M | T2.3, T2.5b, T2.7, T2.10 | ready | |
 | G2 | Gate: local end-to-end run | S | T2.8 | pending | |
 | T2.9 | Runner bundle, Dockerfile, image zip | M | G2, T0.5 | todo | |
 

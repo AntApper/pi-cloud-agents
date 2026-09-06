@@ -104,6 +104,14 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t2.5a-t2.5b-t2.7-t2.10-runner · T2.5a, T2.5b, T2.7, T2.10
+- did: implemented runner HTTP REST & SSE API (`runner/api.ts`), WebSocket RPC passthrough (`runner/ws-rpc.ts`), lifecycle policy manager (`runner/lifecycle.ts`), and metrics collector (`runner/metrics.ts`).
+- validated: `npm run check` (206 unit tests green across 25 test files, 0 glyph violations).
+- left: T2.5a, T2.5b, T2.7, and T2.10 complete.
+- next: start `T2.8` (Local harness, mock LLM, and e2e:local).
+- aws: none
+- open: none
+
 
 
 

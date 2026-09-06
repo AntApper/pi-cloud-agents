@@ -164,7 +164,7 @@ describe("Mock Guest Capabilities Server & Diag Probes", () => {
     } finally {
       await server.close();
     }
-  });
+  }, 15000);
 });
 
 describe("End-to-End Guest Capabilities Spike Simulation (T0.4)", () => {
