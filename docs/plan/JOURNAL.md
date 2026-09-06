@@ -88,6 +88,15 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t0.5-pi-headless · T0.5
+- did: implemented `image/Dockerfile` v0 (AL2023 ARM64 base + Node 22 + pinned pi 0.85.1), `runner/pi-extensions/mock-llm.ts` (scripted 2-turn zero-cost mock LLM provider), `core/aws/pi-headless.ts`, CLI `scripts/spike/pi-headless.ts`, and 11 unit tests.
+- validated: `npm run spike:pi-headless -- --region us-east-1`, `npm run aws:cleanup -- --region us-east-1 --dry-run`, `npm run check` (69 tests green, 0 forbidden glyphs), verified A2.
+- left: T0.5 complete; all Phase 0 spikes (T0.1–T0.6) are now done.
+- next: proceed to Gate `G0` (Gate: spikes complete, decisions confirmed).
+- aws: none
+- open: none
+
+
 
 
 

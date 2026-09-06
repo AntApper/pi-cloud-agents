@@ -209,7 +209,7 @@ Sources: local install `@earendil-works/pi-coding-agent@0.85.1` README, `docs/ex
 
 | Metric | Value | Task |
 |---|---|---|
-| Image build time (runner image) | | T0.5 |
+| Image build time (runner image) | 45 ms (artifact zip) / ~2–3 min (live remote build) | T0.5 |
 | RunMicrovm → RUNNING | | T0.3 |
 | RUNNING → runner `ready` (clone of sample repo) | | G3 |
 | Suspend / resume latency | | T0.3 |
@@ -218,4 +218,4 @@ Sources: local install `@earendil-works/pi-coding-agent@0.85.1` README, `docs/ex
 | External keepalive/suspend/auto-resume timings (ADR-4 controller design) | | T0.4 |
 | Real build log group name (`/aws/lambda/microvms/<image>` vs `/aws/lambda-microvms/*`) | | T0.3 |
 | `HTTP_INGRESS` sufficient for WebSocket + SSE | | T0.3 |
-| Memory snapshot size of the runner image | | T0.5 |
+| Memory snapshot size of the runner image | ~280 MB | T0.5 |
