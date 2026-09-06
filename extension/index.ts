@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { PiUiContext } from "./prompter-pi.js";
 import { getCloudArgumentCompletions, routeCloudCommand } from "./router.js";
+import { handleSessionShutdownDurability, handleSessionStartDurability } from "./ui/durability.js";
 import { registerInputHandling } from "./ui/input-handler.js";
 import {
   beforeAgentStartGuard,
@@ -41,7 +42,11 @@ export default function (pi: ExtensionAPI): void {
 
     let pollInterval: ReturnType<typeof setInterval> | null = null;
 
-    pi.on("session_start", (_event, ctx) => {
+    pi.on("session_start", async (event, ctx) => {
+      // Auto-reattach if this session contains cloud-run metadata (laptop-close / resume)
+      const entries = (event as { entries?: unknown[] })?.entries;
+      await handleSessionStartDurability(entries, ctx as unknown as PiUiContext, pi);
+
       if (ctx.hasUI && ctx.ui && typeof ctx.ui.setStatus === "function") {
         if (!getActiveMirrorSession()) {
           ctx.ui.setStatus("cloud", "cloud 0 running · 0 idle");
@@ -60,6 +65,7 @@ export default function (pi: ExtensionAPI): void {
     });
 
     pi.on("session_shutdown", () => {
+      handleSessionShutdownDurability();
       detachActiveMirrorSession();
 
       if (pollInterval) {

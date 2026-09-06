@@ -160,13 +160,14 @@ Entry template:
 - aws: none
 - open: none
 
-## 2026-09-06 · t4.6-t4.8-t4.10 · T4.6, T4.8, T4.10
-- did: implemented /cloud list & /cloud status detail card (T4.6), cloud control commands stop/suspend/resume/logs/pr/shell (T4.8), and /cloud update & /cloud destroy lifecycle operations (T4.10).
-- validated: `npm run check` (46 test files / 396 tests green, 0 glyph violations), full typecheck and Biome lint passing.
-- left: T4.6, T4.8, and T4.10 complete.
-- next: start `T4.7a` (attach mirror session core), `T4.9` (cloud_agent tool), `T4.14` (dashboard), or `T4.12` (cloud open).
+## 2026-09-06 · t4.7a-t4.7b-t4.7c-t4.7d-attach-mirror · T4.7a, T4.7b, T4.7c, T4.7d
+- did: implemented complete Phase 4 attach & mirror session subsystem: mirror session core (T4.7a), input forwarding & steering & abort & remote UI interaction (T4.7b), rich message renderers & responsive status footer (T4.7c), and auto-reattach durability & laptop-close recovery (T4.7d).
+- validated: `npm run check` (50 test files / 428 tests green, 0 forbidden glyphs), all typecheck, Biome lint, and unit test suites passing.
+- left: T4.7a, T4.7b, T4.7c, and T4.7d complete.
+- next: start `T4.9` (`cloud_agent` tool), `T4.14` (`/cloud dashboard`), `T4.12` (`/cloud open`), or `T4.15` (hub and quick-setup polish).
 - aws: none
 - open: none
+
 
 
 
