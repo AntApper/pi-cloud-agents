@@ -23,7 +23,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T1.1 | Protocol and manifest schemas | M | G0 | done | [docs/evidence/T1.1.md](docs/evidence/T1.1.md) |
 | T1.2 | Local and per-repo config schemas + loader | S/M | T1.1 | done | [docs/evidence/T1.2.md](docs/evidence/T1.2.md) |
 | T1.3 | Runner API contract document | S | T1.1 | done | [docs/evidence/T1.3.md](docs/evidence/T1.3.md) |
-| T1.4 | pi config bundle builder (`core/pi-config`) | M | T1.1, T0.6 | ready | |
+| T1.4 | pi config bundle builder (`core/pi-config`) | M | T1.1, T0.6 | done | [docs/evidence/T1.4.md](docs/evidence/T1.4.md) |
 
 ## Phase 2 — Runner
 
@@ -50,7 +50,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T3.1b | CloudFormation image stack | M | T3.1a | todo | |
 | T3.2 | Stack deployer module | M | T3.1b | todo | |
 | T3.3 | Image manager | M | T3.2, T2.9 | todo | |
-| T3.4 | Secrets store (AWS Secrets Manager) | S/M | T1.2 | todo | |
+| T3.4 | Secrets store (AWS Secrets Manager) | S/M | T1.2 | ready | |
 | T3.5 | Controller Lambda (keepalive, idle policy, janitor) | M | T2.6, T2.7, T3.1b | todo | |
 | G3 | Gate: live infra smoke [AWS] | M | T3.2–T3.5, T2.9 | pending | |
 
@@ -60,7 +60,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 |---|---|---|---|---|---|
 | T4.1a | Extension skeleton, router, doctor | M | G2 | todo | |
 | T4.1b | UI kit and style compliance (no-emoji lint) | M | T4.1a | todo | |
-| T4.2 | AWS client factory and error mapping | S/M | T1.2 | todo | |
+| T4.2 | AWS client factory and error mapping | S/M | T1.2 | ready | |
 | T4.3a | Setup wizard: quick setup default + custom | M | T4.1a, T4.1b, T4.2, T3.4 | todo | |
 | T4.3b | Setup execution (deploy, image, bundle, secrets) | M | T4.3a, T3.2, T3.3 | todo | |
 | T4.3c | Standalone CLI `npx pi-cloud-agents` | M | T4.3b | todo | |

@@ -96,11 +96,11 @@ Entry template:
 - aws: none
 - open: none
 
-## 2026-09-06 · t1.3-protocol · T1.3
-- did: completed `docs/protocol.md` with port 8080 REST/SSE endpoints, port 9000 MicroVM hooks, LF-delimited JSONL WebSocket rules, proxy auth headers, and JSON schemas.
-- validated: `npm run schemas:gen && git diff --exit-code docs/schemas`, `npm run check` (106 tests green, 0 glyph violations).
-- left: T1.3 complete.
-- next: start `T1.4` (pi config bundle builder).
+## 2026-09-06 · t1.4-bundle · T1.4
+- did: implemented `core/pi-config.ts` (`buildBundle` & `assemblePiAgentDir`), deterministic USTAR tar builder/extractor, settings sanitizer, OAuth opt-in filtering, and zero-secrets bundle security scan.
+- validated: `npm run check` (115 tests green, 0 glyph violations).
+- left: T1.4 complete; all Phase 1 tasks (T1.1–T1.4) are done.
+- next: start Phase 2 tasks: `T2.1` (lifecycle hook server) or `T2.2` (launch payload, secrets, pi config assembly).
 - aws: none
 - open: none
 
