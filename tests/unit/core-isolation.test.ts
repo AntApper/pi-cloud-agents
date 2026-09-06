@@ -2,20 +2,23 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-describe("Core isolation rule", () => {
-  it("ensures core/ does not import @earendil-works/pi-coding-agent at runtime", () => {
-    const coreDir = path.resolve(process.cwd(), "core");
-    if (!fs.existsSync(coreDir)) return;
+describe("Core and CLI isolation rule", () => {
+  it("ensures core/ and cli/ do not import @earendil-works/pi-coding-agent at runtime", () => {
+    const targetDirs = [path.resolve(process.cwd(), "core"), path.resolve(process.cwd(), "cli")];
 
     const files: string[] = [];
     function walk(dir: string) {
+      if (!fs.existsSync(dir)) return;
       for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) walk(full);
         else if (/\.(ts|js|mjs)$/.test(entry.name)) files.push(full);
       }
     }
-    walk(coreDir);
+
+    for (const d of targetDirs) {
+      walk(d);
+    }
 
     for (const file of files) {
       const content = fs.readFileSync(file, "utf8");

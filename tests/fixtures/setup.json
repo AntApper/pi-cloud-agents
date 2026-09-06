@@ -1,0 +1,33 @@
+{
+  "aws": {
+    "profile": "default",
+    "region": "us-east-1"
+  },
+  "stackName": "pi-cloud-agents-core",
+  "image": {
+    "name": "pi-cloud-agents-runner",
+    "memoryMiB": 4096
+  },
+  "defaults": {
+    "model": {
+      "provider": "anthropic",
+      "id": "claude-sonnet-4-6"
+    },
+    "maxDurationHours": 4,
+    "idle": {
+      "suspendAfterMin": 15,
+      "terminateAfterSuspendedMin": 120
+    },
+    "maxConcurrent": 3,
+    "archiveRetentionDays": 30,
+    "controllerCadenceMin": 1
+  },
+  "providers": {
+    "synced": ["anthropic", "openai"],
+    "oauthOptIn": [],
+    "bedrockRole": true
+  },
+  "github": {
+    "mode": "none"
+  }
+}
