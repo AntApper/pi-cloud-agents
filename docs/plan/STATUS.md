@@ -73,13 +73,13 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T4.7c | Attach: rich renderers and remote footer | M | T4.7a | done | [docs/evidence/T4.7c.md](docs/evidence/T4.7c.md) |
 | T4.7d | Attach: durability, auto-reattach, laptop-close | M | T4.7a, T4.5 | done | [docs/evidence/T4.7d.md](docs/evidence/T4.7d.md) |
 | T4.8 | stop / suspend / resume / logs / pr / shell | M | T4.5 | done | [docs/evidence/T4.8.md](docs/evidence/T4.8.md) |
-| T4.9 | `cloud_agent` tool | M | T4.4, T4.6, T4.8 | ready | |
+| T4.9 | `cloud_agent` tool | M | T4.4, T4.6, T4.8 | in-progress (agent, 2026-09-06) | [docs/evidence/T4.9.md](docs/evidence/T4.9.md) |
 | T4.10 | `/cloud update` and `/cloud destroy` | M | T4.3b, T3.3 | done | [docs/evidence/T4.10.md](docs/evidence/T4.10.md) |
 | T4.11 | `/cloud config` settings screen | M | T4.1a, T4.1b, T1.2 | done | [docs/evidence/T4.11.md](docs/evidence/T4.11.md) |
 | T4.12 | `/cloud open` native read-only viewer | S/M | T4.5 | ready | |
 | T4.13 | `/cloud sync` pi config bundle refresh | S/M | T1.4, T3.4, T4.2 | done | [docs/evidence/T4.13.md](docs/evidence/T4.13.md) |
 | T4.14 | `/cloud dashboard` live fleet view | M | T4.6, T4.5, T2.10, T4.1b | ready | |
-| T4.15 | Hub, quick-setup polish, first-run, IAM helper | M | T4.3a, T4.3b, T4.3d, T4.1b | todo | |
+| T4.15 | Hub, quick-setup polish, first-run, IAM helper | M | T4.3a, T4.3b, T4.3d, T4.1b | ready | |
 | G4 | Gate: real end-to-end cloud agent + UX review [AWS] | M | T4.1a–T4.15, G3 | pending | |
 
 ## Phase 5 — Hardening and release
