@@ -77,7 +77,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T4.10 | `/cloud update` and `/cloud destroy` | M | T4.3b, T3.3 | todo | |
 | T4.11 | `/cloud config` settings screen | M | T4.1a, T4.1b, T1.2 | done | [docs/evidence/T4.11.md](docs/evidence/T4.11.md) |
 | T4.12 | `/cloud open` native read-only viewer | S/M | T4.5 | todo | |
-| T4.13 | `/cloud sync` pi config bundle refresh | S/M | T1.4, T3.4, T4.2 | ready | |
+| T4.13 | `/cloud sync` pi config bundle refresh | S/M | T1.4, T3.4, T4.2 | done | [docs/evidence/T4.13.md](docs/evidence/T4.13.md) |
 | T4.14 | `/cloud dashboard` live fleet view | M | T4.6, T4.5, T2.10, T4.1b | todo | |
 | T4.15 | Hub, quick-setup polish, first-run, IAM helper | M | T4.3a, T4.3b, T4.3d, T4.1b | todo | |
 | G4 | Gate: real end-to-end cloud agent + UX review [AWS] | M | T4.1a–T4.15, G3 | pending | |

@@ -3,6 +3,7 @@
  */
 
 import { handleCloudConfigCommand } from "./commands/config.js";
+import { handleCloudSyncCommand } from "./commands/sync.js";
 import { type DoctorProbeOptions, formatDoctorTable, runDoctorDiagnostics } from "./doctor.js";
 
 export interface SubcommandDefinition {
@@ -252,6 +253,10 @@ export async function routeCloudCommand(
 
   if (sub === "config") {
     return handleCloudConfigCommand(subArgs, ctx);
+  }
+
+  if (sub === "sync") {
+    return handleCloudSyncCommand(subArgs, ctx);
   }
 
   const knownSub = CLOUD_SUBCOMMANDS.find((cmd) => cmd.name === sub);
