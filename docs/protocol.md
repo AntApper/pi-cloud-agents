@@ -203,6 +203,23 @@ Triggers clean shutdown: aborts active loops, commits pending work branch change
 ```
 - **Response**: `200 OK` `{ "status": "finalizing" }`
 
+### 6.8 `GET /v1/entries`
+Retrieves historical session entries since a specified entry ID or cursor.
+- **Query Parameter**: `since=<entryId>`
+- **Response**: `200 OK` Array of JSON session entries
+
+### 6.9 `GET /v1/metrics`
+Retrieves detailed runner performance, resource ring buffer, timeline, and agent observability metrics.
+- **Response**: `200 OK` Metrics payload
+
+### 6.10 `POST /v1/checkpoint`
+Triggers an immediate flush of the active session transcript and manifest to persistent storage.
+- **Response**: `200 OK` `{ "status": "checkpointed" }`
+
+### 6.11 `POST /v1/shutdown`
+Initiates graceful runner and agent shutdown.
+- **Response**: `200 OK` `{ "status": "shutting_down" }`
+
 ---
 
 ## 7. WebSocket RPC Passthrough (`/ws/rpc`, `/v1/rpc`)

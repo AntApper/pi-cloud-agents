@@ -11,3 +11,4 @@ export * from "./pi-config.js";
 export * from "./workspace.js";
 export * from "./pi-process.js";
 export * from "./state.js";
+export * from "./api.js";

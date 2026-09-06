@@ -364,7 +364,19 @@ export const PROTOCOL_ROUTES = [
   { method: "GET", path: "/healthz", port: 8080, description: "Liveness probe" },
   { method: "GET", path: "/v1/status", port: 8080, description: "Runner status and agent health" },
   { method: "GET", path: "/v1/manifest", port: 8080, description: "Current run manifest" },
+  {
+    method: "GET",
+    path: "/v1/entries",
+    port: 8080,
+    description: "Retrieve historical session entries since cursor",
+  },
   { method: "GET", path: "/v1/events", port: 8080, description: "Server-Sent Events stream" },
+  {
+    method: "GET",
+    path: "/v1/metrics",
+    port: 8080,
+    description: "Detailed runner metrics and resource time series",
+  },
   {
     method: "POST",
     path: "/v1/prompt",
@@ -380,9 +392,21 @@ export const PROTOCOL_ROUTES = [
   },
   {
     method: "POST",
+    path: "/v1/checkpoint",
+    port: 8080,
+    description: "Flush session buffer and persist manifest checkpoint",
+  },
+  {
+    method: "POST",
     path: "/v1/finalize",
     port: 8080,
     description: "Finalize run, commit/push, and flush manifest",
+  },
+  {
+    method: "POST",
+    path: "/v1/shutdown",
+    port: 8080,
+    description: "Initiate graceful runner and agent shutdown",
   },
   {
     method: "GET",

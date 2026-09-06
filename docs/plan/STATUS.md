@@ -33,8 +33,8 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T2.2 | Launch payload, secrets, pi config assembly | M | T2.1, T1.4 | done | [docs/evidence/T2.2.md](docs/evidence/T2.2.md) |
 | T2.3 | Workspace preparation (git + install) | M | T2.2 | done | [docs/evidence/T2.3.md](docs/evidence/T2.3.md) |
 | T2.4 | pi process manager (RPC bridge) | M | T2.2 | done | [docs/evidence/T2.4.md](docs/evidence/T2.4.md) |
-| T2.5a | Runner HTTP API (REST + SSE) | M | T2.4, T1.3 | ready | |
-| T2.5b | Runner WebSocket RPC passthrough | M | T2.5a | todo | |
+| T2.5a | Runner HTTP API (REST + SSE) | M | T2.4, T1.3 | done | [docs/evidence/T2.5a.md](docs/evidence/T2.5a.md) |
+| T2.5b | Runner WebSocket RPC passthrough | M | T2.5a | ready | |
 | T2.6 | Run state machine and persistence | M | T2.2 | done | [docs/evidence/T2.6.md](docs/evidence/T2.6.md) |
 | T2.7 | Lifecycle policy (idle reporting, finalize, resume recovery) | M | T2.5a, T2.6 | todo | |
 | T2.10 | Runner metrics and lifecycle timeline | M | T2.5a, T2.6 | todo | |

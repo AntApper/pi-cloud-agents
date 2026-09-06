@@ -273,6 +273,13 @@ export class RunStateMachine {
   }
 
   /**
+   * Returns the linked local pi session file path if configured.
+   */
+  public getTrackedSessionFilePath(): string | undefined {
+    return this.trackedSessionFilePath;
+  }
+
+  /**
    * Appends raw session chunk (e.g. JSONL lines) to in-memory buffer and schedules debounced flush.
    */
   public appendSessionChunk(chunk: string | Buffer): void {
