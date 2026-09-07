@@ -13,6 +13,7 @@ import {
 import { ListServiceQuotasCommand, ServiceQuotasClient } from "@aws-sdk/client-service-quotas";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { maskAccountId, maskArn } from "./mask.js";
+import { collectPages } from "./paginate.js";
 
 export const SUPPORTED_MICROVM_REGIONS = [
   "us-east-1",
@@ -194,9 +195,14 @@ export async function probeAwsReadiness(
 
   // 2b. ListMicrovmImages (Customer images permission probe)
   try {
-    const imagesOutput = await microvmsClient.send(new ListMicrovmImagesCommand({}));
+    const images = await collectPages({
+      fetchPage: (nextToken: string | undefined) =>
+        microvmsClient.send(new ListMicrovmImagesCommand({ nextToken })),
+      nextToken: (page) => page.nextToken,
+      items: (page) => page.items,
+    });
     report.microvmImages.status = "PASS";
-    report.microvmImages.imageCount = (imagesOutput.items ?? []).length;
+    report.microvmImages.imageCount = images.length;
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     report.microvmImages.status = "FAIL";
@@ -206,9 +212,14 @@ export async function probeAwsReadiness(
 
   // 2c. ListMicrovms (MicroVM instances permission probe)
   try {
-    const vmsOutput = await microvmsClient.send(new ListMicrovmsCommand({}));
+    const vms = await collectPages({
+      fetchPage: (nextToken: string | undefined) =>
+        microvmsClient.send(new ListMicrovmsCommand({ nextToken })),
+      nextToken: (page) => page.nextToken,
+      items: (page) => page.items,
+    });
     report.microvms.status = "PASS";
-    report.microvms.microvmCount = (vmsOutput.items ?? []).length;
+    report.microvms.microvmCount = vms.length;
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     report.microvms.status = "FAIL";

@@ -10,6 +10,7 @@ import { GetObjectCommand, ListObjectsV2Command, type S3Client } from "@aws-sdk/
 import type { LocalConfig } from "../shared/config.js";
 import { type RunManifest, RunManifestSchema, type RunnerStatus } from "../shared/protocol.js";
 import { AwsClientFactory } from "./aws/clients.js";
+import { collectPages } from "./aws/paginate.js";
 import { RunClient } from "./client/run-client.js";
 import { loadLocalConfig } from "./config.js";
 import { DEFAULT_STACK_NAME } from "./sync.js";
@@ -227,14 +228,15 @@ export async function listCloudRuns(options: ListRunsOptions = {}): Promise<RunL
   // 2. Discover S3 manifest keys under runs/
   const manifestKeys: string[] = [];
   try {
-    const listRes = await s3Client.send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: "runs/",
-        MaxKeys: 250,
-      }),
-    );
-    for (const obj of listRes.Contents || []) {
+    const objects = await collectPages({
+      fetchPage: (ContinuationToken: string | undefined) =>
+        s3Client.send(
+          new ListObjectsV2Command({ Bucket: bucket, Prefix: "runs/", ContinuationToken }),
+        ),
+      nextToken: (page) => (page.IsTruncated ? page.NextContinuationToken : undefined),
+      items: (page) => page.Contents,
+    });
+    for (const obj of objects) {
       if (obj.Key?.endsWith("/manifest.json")) {
         manifestKeys.push(obj.Key);
       }
@@ -287,8 +289,13 @@ export async function listCloudRuns(options: ListRunsOptions = {}): Promise<RunL
     }
   } else {
     try {
-      const vmsRes = await microvmsClient.send(new ListMicrovmsCommand({}));
-      for (const vm of vmsRes.items || []) {
+      const vms = await collectPages({
+        fetchPage: (nextToken: string | undefined) =>
+          microvmsClient.send(new ListMicrovmsCommand({ nextToken })),
+        nextToken: (page) => page.nextToken,
+        items: (page) => page.items,
+      });
+      for (const vm of vms) {
         if (vm.microvmId) {
           activeVmMap.set(vm.microvmId, {
             microvmId: vm.microvmId,

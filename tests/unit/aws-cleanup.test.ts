@@ -269,4 +269,117 @@ describe("AWS Kill-switch Cleanup", () => {
     expect(report.summary.microvmsFound).toBe(2);
     expect(report.summary.microvmsTerminated).toBe(2);
   });
+
+  describe("S3 test bucket purge", () => {
+    const noOtherResources = {
+      send: async () => ({}),
+    };
+    const baseOptions = {
+      region: "us-east-1",
+      all: true,
+      dryRun: false,
+      microvmsClient: noOtherResources as unknown as LambdaMicrovmsClient,
+      cfnClient: noOtherResources as unknown as CloudFormationClient,
+      secretsClient: noOtherResources as unknown as SecretsManagerClient,
+      ssmClient: noOtherResources as unknown as SSMClient,
+    };
+
+    it("walks every ListObjectVersions page using both markers before deleting the bucket", async () => {
+      const seen: Array<{ cmd: string; input: Record<string, unknown> }> = [];
+      const fakeS3 = {
+        send: async (cmd: SdkCommandLike & { input?: Record<string, unknown> }) => {
+          const cmdName = cmd.constructor?.name ?? "";
+          seen.push({ cmd: cmdName, input: cmd.input ?? {} });
+          if (cmdName === "ListBucketsCommand") {
+            return { Buckets: [{ Name: "pi-cloud-agents-test-bucket" }] };
+          }
+          if (cmdName === "ListObjectVersionsCommand") {
+            if (cmd.input?.KeyMarker === undefined) {
+              return {
+                Versions: [{ Key: "a", VersionId: "1" }],
+                DeleteMarkers: [{ Key: "b", VersionId: "2" }],
+                IsTruncated: true,
+                NextKeyMarker: "b",
+                NextVersionIdMarker: "2",
+              };
+            }
+            return { Versions: [{ Key: "c", VersionId: "3" }], IsTruncated: false };
+          }
+          return {};
+        },
+      } as unknown as S3Client;
+
+      const report = await runAwsCleanup({ ...baseOptions, s3Client: fakeS3 });
+
+      expect(report.summary.bucketsDeleted).toBe(1);
+      expect(report.summary.failedCount).toBe(0);
+
+      const versionCalls = seen.filter((s) => s.cmd === "ListObjectVersionsCommand");
+      expect(versionCalls).toHaveLength(2);
+      expect(versionCalls[1]?.input).toMatchObject({ KeyMarker: "b", VersionIdMarker: "2" });
+
+      const deletes = seen.filter((s) => s.cmd === "DeleteObjectsCommand");
+      expect(deletes).toHaveLength(2);
+      expect(seen.filter((s) => s.cmd === "ListObjectsV2Command")).toHaveLength(0);
+      expect(seen.at(-1)?.cmd).toBe("DeleteBucketCommand");
+    });
+
+    it("falls back to the unversioned sweep only when version listing is denied", async () => {
+      const seen: string[] = [];
+      const fakeS3 = {
+        send: async (cmd: SdkCommandLike) => {
+          const cmdName = cmd.constructor?.name ?? "";
+          seen.push(cmdName);
+          if (cmdName === "ListBucketsCommand") {
+            return { Buckets: [{ Name: "pi-cloud-agents-test-bucket" }] };
+          }
+          if (cmdName === "ListObjectVersionsCommand") {
+            const denied = new Error("not allowed to ListBucketVersions");
+            denied.name = "AccessDenied";
+            throw denied;
+          }
+          if (cmdName === "ListObjectsV2Command") {
+            return { Contents: [{ Key: "a" }], IsTruncated: false };
+          }
+          return {};
+        },
+      } as unknown as S3Client;
+
+      const report = await runAwsCleanup({ ...baseOptions, s3Client: fakeS3 });
+
+      expect(report.summary.bucketsDeleted).toBe(1);
+      expect(report.summary.failedCount).toBe(0);
+      expect(seen).toContain("ListObjectsV2Command");
+      expect(seen.at(-1)).toBe("DeleteBucketCommand");
+    });
+
+    it("reports the real error instead of masking a throttled version listing with a second sweep", async () => {
+      const seen: string[] = [];
+      const fakeS3 = {
+        send: async (cmd: SdkCommandLike) => {
+          const cmdName = cmd.constructor?.name ?? "";
+          seen.push(cmdName);
+          if (cmdName === "ListBucketsCommand") {
+            return { Buckets: [{ Name: "pi-cloud-agents-test-bucket" }] };
+          }
+          if (cmdName === "ListObjectVersionsCommand") {
+            const throttled = new Error("Rate exceeded");
+            throttled.name = "SlowDown";
+            throw throttled;
+          }
+          return {};
+        },
+      } as unknown as S3Client;
+
+      const report = await runAwsCleanup({ ...baseOptions, s3Client: fakeS3 });
+
+      expect(report.summary.bucketsDeleted).toBe(0);
+      expect(report.summary.failedCount).toBe(1);
+      const bucket = report.resources.find((r) => r.type === "S3_BUCKET");
+      expect(bucket?.action).toBe("FAILED");
+      expect(bucket?.error).toContain("Rate exceeded");
+      expect(seen).not.toContain("ListObjectsV2Command");
+      expect(seen).not.toContain("DeleteBucketCommand");
+    });
+  });
 });

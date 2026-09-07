@@ -178,44 +178,29 @@ function resolveTemplateContent(filename: string, customPath?: string): string {
 }
 
 /**
- * Resolves or builds artifact zip files.
+ * Resolves the runner and controller zip artifacts: explicit paths first, then the packaged
+ * `dist/` output that ships in the npm tarball (and that `npm run build` produces in a checkout).
+ * Never builds on the fly: `core/` must not depend on the build scripts or on `esbuild`.
  */
-async function resolveArtifactPaths(options: {
+function resolveArtifactPaths(options: {
   runnerZipPath?: string;
   controllerZipPath?: string;
-}): Promise<{ runnerZipPath: string; controllerZipPath: string }> {
-  const runnerZip = options.runnerZipPath;
-  const controllerZip = options.controllerZipPath;
+}): { runnerZipPath: string; controllerZipPath: string } {
+  const runnerZipPath =
+    options.runnerZipPath ?? path.resolve(__dirname, "..", "..", "dist", "image", "app.zip");
+  const controllerZipPath =
+    options.controllerZipPath ?? path.resolve(__dirname, "..", "..", "dist", "controller.zip");
 
-  if (runnerZip && controllerZip && fs.existsSync(runnerZip) && fs.existsSync(controllerZip)) {
-    return { runnerZipPath: runnerZip, controllerZipPath: controllerZip };
+  const missing = [runnerZipPath, controllerZipPath].filter((p) => !fs.existsSync(p));
+  if (missing.length > 0) {
+    const hint =
+      "The package's dist/ output is incomplete. In a checkout run 'npm run build'; for an installed package reinstall it with 'npm install -g pi-cloud-agents'.";
+    throw new Error(
+      `Runner artifacts not found: ${missing.join(", ")} (ARTIFACTS_MISSING). ${hint}`,
+    );
   }
 
-  const defaultRunner = path.resolve(__dirname, "..", "..", "dist", "image", "app.zip");
-  const defaultController = path.resolve(__dirname, "..", "..", "dist", "controller.zip");
-
-  if (fs.existsSync(defaultRunner) && fs.existsSync(defaultController)) {
-    return {
-      runnerZipPath: runnerZip || defaultRunner,
-      controllerZipPath: controllerZip || defaultController,
-    };
-  }
-
-  // Try dynamic build if available
-  try {
-    const buildModule = await import("../../scripts/build.js");
-    const summary = await buildModule.buildAll();
-    return {
-      runnerZipPath: runnerZip || summary.imageZip.zipPath,
-      controllerZipPath: controllerZip || summary.controllerZipPath,
-    };
-  } catch {
-    // If dynamic build is unavailable, return defaults even if they might be checked later
-    return {
-      runnerZipPath: runnerZip || defaultRunner,
-      controllerZipPath: controllerZip || defaultController,
-    };
-  }
+  return { runnerZipPath, controllerZipPath };
 }
 
 /**
@@ -356,7 +341,7 @@ export async function executeSetup(params: ExecuteSetupParams): Promise<SetupExe
     } else {
       params.onStepProgress?.(step2, "started");
       const artifactAction = async () => {
-        const paths = await resolveArtifactPaths({
+        const paths = resolveArtifactPaths({
           runnerZipPath: params.runnerZipPath,
           controllerZipPath: params.controllerZipPath,
         });
@@ -423,6 +408,7 @@ export async function executeSetup(params: ExecuteSetupParams): Promise<SetupExe
             BaseImageArn: baseImage.baseImageArn,
             BaseImageVersion: baseImage.baseImageVersion,
             ImageLogGroup: imageLogGroup,
+            KmsKeyArn: config.kmsKeyArn ?? "",
           },
           tags: {
             "pi-cloud-agents:stack": stackName,

@@ -172,13 +172,16 @@ Resources:
                   - "secretsmanager:DeleteSecret"
                 Resource:
                   - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:pi-cloud-agents/${AWS::StackName}/runs/*"
+              # With a customer-managed key the artifact bucket is SSE-KMS encrypted, so reading
+              # manifests needs Decrypt and writing controller/health state needs GenerateDataKey.
               - !If
                 - HasKmsKey
-                - Sid: KmsDecryptController
+                - Sid: KmsControllerBucketAccess
                   Effect: Allow
                   Action:
                     - "kms:Decrypt"
                     - "kms:DescribeKey"
+                    - "kms:GenerateDataKey*"
                   Resource: !Ref KmsKeyArn
                 - !Ref "AWS::NoValue"
       Tags:

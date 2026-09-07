@@ -12,6 +12,7 @@ import { DEFAULT_LOCAL_CONFIG, type LocalConfig, LocalConfigSchema } from "../..
 import { AwsClientFactory } from "../aws/clients.js";
 import { maskAccountId } from "../aws/mask.js";
 import { SUPPORTED_MICROVM_REGIONS } from "../aws/readiness.js";
+import { formatGitHubSecretName } from "../aws/secrets.js";
 import { loadLocalConfig, saveLocalConfig } from "../config.js";
 import { type StoredCredential, parseAuthJson, resolvePiAgentDir } from "../credentials.js";
 import type { Prompter, SelectOption } from "../prompter.js";
@@ -415,7 +416,7 @@ export async function runSetupWizard(options: SetupWizardOptions): Promise<Setup
       );
       githubTokenValue = pat;
       githubMode = "secret";
-      githubSecretName = `pi-cloud-agents/${DEFAULT_STACK_NAME}/github/token`;
+      githubSecretName = formatGitHubSecretName(workingConfig.stackName);
     }
 
     // Step 4: Sizing & Budgets

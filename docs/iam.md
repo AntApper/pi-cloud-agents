@@ -301,8 +301,17 @@ Used by the 1-minute scheduled controller Lambda function deployed in `infra/ima
 ### Permissions
 - `lambda:ListMicrovms`, `lambda:GetMicrovm`, `lambda:SuspendMicrovm`, `lambda:TerminateMicrovm`, `lambda:CreateMicrovmAuthToken` on the image
 - S3 read/write on `runs/*`, `index/*`, and `controller/*`
+- `secretsmanager:ListSecrets` on `Resource: "*"` (`JanitorSecretDiscovery`). ListSecrets does not
+  support resource-level permissions, so `*` is the narrowest possible grant; the call returns
+  names and metadata only, never values, and the controller filters on
+  `pi-cloud-agents/<stack>/runs/`. This is the only wildcard resource in the role and the
+  `infra-policies` unit test fails if any other action is granted on `*`.
 - `secretsmanager:DeleteSecret` on `pi-cloud-agents/<stack>/runs/*` (for janitor cleanup of run-scoped credentials)
 - CloudWatch logs write to `/pi-cloud-agents/<stack>/controller`
+- When a customer-managed KMS key is configured (`kmsKeyArn` in the local config, passed as the
+  `KmsKeyArn` parameter to both stacks): `kms:Decrypt`, `kms:DescribeKey`, `kms:GenerateDataKey*`
+  on that key only, because the artifact bucket is then SSE-KMS encrypted and the controller both
+  reads manifests and writes its health state there. Without a key the statement is omitted.
 
 ---
 

@@ -177,8 +177,10 @@ Submits a user prompt, steer instruction, or queued follow-up message to the run
 - **Modes**:
   - `prompt`: Standard prompt. If the agent is currently streaming, returns `409 Conflict` (client should steer or follow-up).
   - `steer`: Steers the active LLM turn with immediate direction.
-  - `followUp`: Queues message to be processed once the current turn completes.
-- **Response**: `200 OK` `{ "status": "accepted", "mode": "prompt" }`
+  - `followUp`: Queues message to be processed once the current turn completes. The WebSocket
+    spelling `follow_up` is accepted as an alias on this endpoint only.
+- **Response**: `200 OK` `{ "status": "accepted", "mode": "prompt" }`. `mode` is always one of
+  `prompt`, `steer`, `followUp` (the alias is normalised, never echoed).
 
 ### 6.6 `POST /v1/interrupt` & `POST /v1/abort`
 Interrupts active LLM generation or clears pending message queues.

@@ -10,6 +10,7 @@ import { GetObjectCommand, ListObjectsV2Command, type S3Client } from "@aws-sdk/
 import type { LocalConfig } from "../shared/config.js";
 import { type RunManifest, RunManifestSchema, type RunnerStatus } from "../shared/protocol.js";
 import { AwsClientFactory } from "./aws/clients.js";
+import { iteratePages } from "./aws/paginate.js";
 import { RunClient } from "./client/run-client.js";
 import { loadLocalConfig } from "./config.js";
 import {
@@ -160,35 +161,59 @@ export async function resolveRunId(
 
   if (s3Client && bucket) {
     try {
-      let continuationToken: string | undefined;
-      do {
-        const listRes = await s3Client.send(
-          new ListObjectsV2Command({
-            Bucket: bucket,
-            Prefix: "runs/",
-            MaxKeys: 100,
-            ContinuationToken: continuationToken,
-          }),
-        );
-
-        for (const obj of listRes.Contents || []) {
-          const match = obj.Key?.match(/^runs\/(run-[a-z0-9-]+)\/manifest\.json$/);
-          if (match?.[1]) {
-            const fullId = match[1];
-            if (fullId === trimmed || fullId === `run-${trimmed}` || fullId.includes(trimmed)) {
-              return fullId;
-            }
-          }
-        }
-
-        continuationToken = listRes.IsTruncated ? listRes.NextContinuationToken : undefined;
-      } while (continuationToken);
+      const resolved = await findRunIdInBucket(s3Client, bucket, trimmed);
+      if (resolved) return resolved;
     } catch {
       // Fall back to formatted ID
     }
   }
 
   return trimmed.startsWith("run-") ? trimmed : `run-${trimmed}`;
+}
+
+const RUN_PREFIX_PATTERN = /^runs\/(run-[a-z0-9-]+)\//;
+
+/**
+ * Scans `runs/` one prefix per run (`Delimiter: "/"` groups every object of a run into a single
+ * `CommonPrefixes` entry) and picks the best match for a full or short run id: an exact id wins
+ * immediately, then a suffix match (short ids are the trailing segment), then a substring match.
+ */
+async function findRunIdInBucket(
+  s3Client: S3Client,
+  bucket: string,
+  query: string,
+): Promise<string | undefined> {
+  let suffixMatch: string | undefined;
+  let substringMatch: string | undefined;
+
+  const pages = iteratePages({
+    fetchPage: (ContinuationToken: string | undefined) =>
+      s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: "runs/",
+          Delimiter: "/",
+          ContinuationToken,
+        }),
+      ),
+    nextToken: (page) => (page.IsTruncated ? page.NextContinuationToken : undefined),
+  });
+
+  for await (const page of pages) {
+    const keys = [
+      ...(page.CommonPrefixes ?? []).map((p) => p.Prefix),
+      ...(page.Contents ?? []).map((o) => o.Key),
+    ];
+    for (const key of keys) {
+      const fullId = key?.match(RUN_PREFIX_PATTERN)?.[1];
+      if (!fullId) continue;
+      if (fullId === query || fullId === `run-${query}`) return fullId;
+      if (!suffixMatch && fullId.endsWith(`-${query}`)) suffixMatch = fullId;
+      else if (!substringMatch && fullId.includes(query)) substringMatch = fullId;
+    }
+  }
+
+  return suffixMatch ?? substringMatch;
 }
 
 /**

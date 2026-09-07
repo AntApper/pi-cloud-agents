@@ -267,4 +267,41 @@ describe("T2.7 Lifecycle Policy & Idle Management", () => {
     expect(gitEnvPassed?.GIT_ASKPASS).toBe("/opt/pi-cloud/askpass.sh");
     expect(gitEnvPassed?.GITHUB_TOKEN).toBe("secret-token-test");
   });
+
+  it("hands the configured env to the real git process (no custom runner)", async () => {
+    // Git reads the author identity from the environment, so a commit authored by these values
+    // proves the lifecycle env (the same object that carries GIT_ASKPASS) reached the child.
+    const lifecycle = new LifecyclePolicyManager(stateMachine, undefined, {
+      repoPath: repoDir,
+      env: {
+        ...process.env,
+        GIT_ASKPASS: "/opt/pi-cloud/askpass.sh",
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_AUTHOR_NAME: "pi-cloud env author",
+        GIT_AUTHOR_EMAIL: "env-author@example.com",
+        GIT_COMMITTER_NAME: "pi-cloud env committer",
+        GIT_COMMITTER_EMAIL: "env-committer@example.com",
+      },
+      clock: fakeClock,
+    });
+
+    fs.writeFileSync(path.join(repoDir, "env-change.txt"), "committed with the lifecycle env\n");
+    const committed = await lifecycle.createCheckpointCommit("real git env");
+    expect(committed).toBe(true);
+
+    const { stdout } = await execFileAsync(
+      "git",
+      ["log", "-1", "--format=%an <%ae>|%cn <%ce>|%s"],
+      {
+        cwd: repoDir,
+      },
+    );
+    expect(stdout.trim()).toBe(
+      "pi-cloud env author <env-author@example.com>|pi-cloud env committer <env-committer@example.com>|pi-cloud: real git env",
+    );
+    const head = (
+      await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repoDir })
+    ).stdout.trim();
+    expect(stateMachine.getManifest().git?.lastCommit).toBe(head);
+  });
 });

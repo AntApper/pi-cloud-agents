@@ -64,7 +64,123 @@ describe("T1.4 pi config bundle builder (core/pi-config)", () => {
       const tar = createDeterministicTar(entries);
       const destDir = path.join(tempDir, "extracted-safe");
 
-      expect(() => extractTar(tar, destDir)).toThrow(/Directory traversal detected/);
+      expect(() => extractTar(tar, destDir)).toThrow(/outside the target directory/);
+      expect(fs.existsSync(path.join(tempDir, "evil.txt"))).toBe(false);
+    });
+
+    /**
+     * Builds one raw 512-byte ustar header (+ padded data) so tests can craft entry types that
+     * createDeterministicTar never emits (symlinks, GNU long names, PAX headers, ustar prefixes).
+     */
+    function rawTarEntry(
+      name: string,
+      content: string,
+      opts: { typeFlag?: string; prefix?: string; linkName?: string } = {},
+    ): Buffer {
+      const data = Buffer.from(content, "utf8");
+      const header = Buffer.alloc(512, 0);
+      header.write(name, 0, 100, "utf8");
+      header.write("000644 \0", 100, 8, "ascii");
+      header.write("0000000\0", 108, 8, "ascii");
+      header.write("0000000\0", 116, 8, "ascii");
+      header.write(`${data.length.toString(8).padStart(11, "0")} `, 124, 12, "ascii");
+      header.write("00000000000 ", 136, 12, "ascii");
+      header.fill(0x20, 148, 156);
+      header.write(opts.typeFlag ?? "0", 156, 1, "ascii");
+      if (opts.linkName) header.write(opts.linkName, 157, 100, "utf8");
+      header.write("ustar\0", 257, 6, "ascii");
+      header.write("00", 263, 2, "ascii");
+      if (opts.prefix) header.write(opts.prefix, 345, 155, "utf8");
+      let checksum = 0;
+      for (const byte of header) checksum += byte;
+      header.write(`${checksum.toString(8).padStart(6, "0")}\0 `, 148, 8, "ascii");
+      const padding = Buffer.alloc((512 - (data.length % 512)) % 512, 0);
+      return Buffer.concat([header, data, padding]);
+    }
+
+    const endOfArchive = Buffer.alloc(1024, 0);
+
+    it("honours the ustar prefix field for long paths", () => {
+      const tar = Buffer.concat([
+        rawTarEntry("SKILL.md", "# deep\n", { prefix: "skills/very/deep/tree" }),
+        endOfArchive,
+      ]);
+      const destDir = path.join(tempDir, "prefix");
+
+      const extracted = extractTar(tar, destDir);
+
+      expect(extracted).toEqual([path.join(destDir, "skills/very/deep/tree/SKILL.md")]);
+    });
+
+    it("applies GNU long-name and PAX path headers to the following entry without writing them", () => {
+      const longName = `${"nested/".repeat(20)}file.txt`;
+      const paxRecord = "path=pax/renamed.txt\n";
+      const paxData = `${paxRecord.length + 3} ${paxRecord}`;
+      const tar = Buffer.concat([
+        rawTarEntry("././@LongLink", `${longName}\0`, { typeFlag: "L" }),
+        rawTarEntry("truncated-name.txt", "long content\n"),
+        rawTarEntry("PaxHeader/x", paxData, { typeFlag: "x" }),
+        rawTarEntry("short.txt", "pax content\n"),
+        rawTarEntry("pax_global_header", "23 comment=ignored\n", { typeFlag: "g" }),
+        endOfArchive,
+      ]);
+      const destDir = path.join(tempDir, "headers");
+
+      const extracted = extractTar(tar, destDir);
+
+      expect(extracted.sort()).toEqual(
+        [path.join(destDir, longName), path.join(destDir, "pax/renamed.txt")].sort(),
+      );
+      expect(fs.readFileSync(path.join(destDir, longName), "utf8")).toBe("long content\n");
+      expect(fs.readFileSync(path.join(destDir, "pax/renamed.txt"), "utf8")).toBe("pax content\n");
+      for (const notWritten of ["././@LongLink", "truncated-name.txt", "PaxHeader", "short.txt"]) {
+        expect(fs.existsSync(path.join(destDir, notWritten))).toBe(false);
+      }
+    });
+
+    it("never materialises link, device or FIFO entries and refuses to write through an escaping PAX path", () => {
+      const outside = path.join(tempDir, "outside");
+      fs.mkdirSync(outside);
+      const paxRecord = `path=${path.relative(path.join(tempDir, "links"), outside)}/escaped.txt\n`;
+      const tar = Buffer.concat([
+        rawTarEntry("link-to-outside", "", { typeFlag: "2", linkName: outside }),
+        rawTarEntry("hardlink", "", { typeFlag: "1", linkName: "file.txt" }),
+        rawTarEntry("fifo", "", { typeFlag: "6" }),
+        rawTarEntry("file.txt", "ok\n"),
+        endOfArchive,
+      ]);
+      const destDir = path.join(tempDir, "links");
+
+      const extracted = extractTar(tar, destDir);
+      expect(extracted).toEqual([path.join(destDir, "file.txt")]);
+      expect(fs.readdirSync(destDir)).toEqual(["file.txt"]);
+
+      const escaping = Buffer.concat([
+        rawTarEntry("PaxHeader/x", `${paxRecord.length + 3} ${paxRecord}`, { typeFlag: "x" }),
+        rawTarEntry("short.txt", "escaped\n"),
+        endOfArchive,
+      ]);
+      expect(() => extractTar(escaping, destDir)).toThrow(/outside the target directory/);
+      expect(fs.existsSync(path.join(outside, "escaped.txt"))).toBe(false);
+    });
+
+    it("refuses to write through a symlink that already exists inside the target directory", () => {
+      const outside = path.join(tempDir, "outside-target");
+      fs.mkdirSync(outside);
+      const destDir = path.join(tempDir, "symlinked");
+      fs.mkdirSync(destDir);
+      fs.symlinkSync(outside, path.join(destDir, "skills"), "dir");
+
+      const tar = createDeterministicTar([{ name: "skills/evil.md", content: "escape\n" }]);
+
+      expect(() => extractTar(tar, destDir)).toThrow(/real path escapes the target directory/);
+      expect(fs.existsSync(path.join(outside, "evil.md"))).toBe(false);
+
+      // A symlink standing in for the file itself is rejected as well.
+      fs.symlinkSync(path.join(outside, "target.json"), path.join(destDir, "models.json"));
+      const fileTar = createDeterministicTar([{ name: "models.json", content: "{}\n" }]);
+      expect(() => extractTar(fileTar, destDir)).toThrow(/existing symbolic link/);
+      expect(fs.existsSync(path.join(outside, "target.json"))).toBe(false);
     });
   });
 

@@ -27,6 +27,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { collectPages } from "./paginate.js";
 
 export interface UploadArtifactResult {
   uploaded: boolean;
@@ -657,13 +658,14 @@ export class MicrovmImageManager {
    * retaining the top `keep` active versions (default = 2: latest active + 1 previous).
    */
   async pruneVersions(imageName: string, keep = 2): Promise<PruneVersionsResult> {
-    const listOutput = await this.microvmsClient.send(
-      new ListMicrovmImageVersionsCommand({
-        imageIdentifier: imageName,
-      }),
-    );
-
-    const versions: MicrovmImageVersionSummary[] = listOutput.items ?? [];
+    const versions: MicrovmImageVersionSummary[] = await collectPages({
+      fetchPage: (nextToken: string | undefined) =>
+        this.microvmsClient.send(
+          new ListMicrovmImageVersionsCommand({ imageIdentifier: imageName, nextToken }),
+        ),
+      nextToken: (page) => page.nextToken,
+      items: (page) => page.items,
+    });
 
     if (versions.length <= keep) {
       return {

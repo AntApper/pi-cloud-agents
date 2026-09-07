@@ -79,6 +79,56 @@ interface CfnResource {
   Properties: Record<string, unknown>;
 }
 
+/**
+ * Flattens every Allow statement of every IAM role / managed policy in a template, resolving
+ * `Fn::If` wrappers to their "condition true" branch so conditional grants are guarded too.
+ */
+function collectAllowStatements(
+  resources: Record<string, CfnResource>,
+): Array<{ resource: string; statement: PolicyStatement }> {
+  const out: Array<{ resource: string; statement: PolicyStatement }> = [];
+  const unwrap = (stmt: PolicyStatement): PolicyStatement | undefined =>
+    stmt["Fn::If"] ? (stmt["Fn::If"][1] as PolicyStatement) : stmt;
+
+  for (const [name, resource] of Object.entries(resources)) {
+    const docs: Array<{ Statement?: PolicyStatement[] }> = [];
+    if (resource.Type === "AWS::IAM::ManagedPolicy") {
+      docs.push(resource.Properties.PolicyDocument as { Statement?: PolicyStatement[] });
+    }
+    if (resource.Type === "AWS::IAM::Role") {
+      const policies = (resource.Properties.Policies ?? []) as Array<{
+        PolicyDocument: { Statement?: PolicyStatement[] };
+      }>;
+      docs.push(...policies.map((p) => p.PolicyDocument));
+    }
+    for (const doc of docs) {
+      for (const raw of doc?.Statement ?? []) {
+        const statement = unwrap(raw);
+        if (statement?.Effect === "Allow") out.push({ resource: name, statement });
+      }
+    }
+  }
+  return out;
+}
+
+function asList(value: string | string[] | undefined): string[] {
+  return Array.isArray(value) ? value : value ? [value] : [];
+}
+
+function expectOnlyAllowedWildcards(resources: Record<string, CfnResource>): void {
+  const seen = collectAllowStatements(resources);
+  expect(seen.length).toBeGreaterThan(0);
+  for (const { resource, statement } of seen) {
+    if (!asList(statement.Resource).includes("*")) continue;
+    for (const action of asList(statement.Action)) {
+      expect(
+        ALLOWED_WILDCARD_ACTIONS.has(action),
+        `${resource} (${statement.Sid ?? "no Sid"}) grants ${action} on Resource "*"`,
+      ).toBe(true);
+    }
+  }
+}
+
 describe("CloudFormation Core Stack Security Policies (T3.1a)", () => {
   const corePath = resolve(process.cwd(), "infra/core.yaml");
   const template = parseCfnTemplate(corePath);
@@ -252,7 +302,7 @@ describe("CloudFormation Core Stack Security Policies (T3.1a)", () => {
     expect(allActions).toContain("bedrock:InvokeModel");
   });
 
-  it("configures OperatorPolicy and verifies no unauthorized wildcard '*' resources", () => {
+  it("configures OperatorPolicy and verifies no unauthorized wildcard '*' resources in any role", () => {
     const operatorPolicy = resources.OperatorPolicy;
     expect(operatorPolicy).toBeDefined();
     expect(operatorPolicy?.Type).toBe("AWS::IAM::ManagedPolicy");
@@ -262,24 +312,10 @@ describe("CloudFormation Core Stack Security Policies (T3.1a)", () => {
           Statement: PolicyStatement[];
         }
       | undefined;
-    const statements = policyDoc?.Statement ?? [];
-    expect(statements.length).toBeGreaterThan(5);
+    expect((policyDoc?.Statement ?? []).length).toBeGreaterThan(5);
 
-    for (const stmt of statements) {
-      const statement = stmt["Fn::If"] ? (stmt["Fn::If"][1] as PolicyStatement) : stmt;
-      if (!statement || statement.Effect !== "Allow") continue;
-
-      const res = statement.Resource;
-      const resourcesList = Array.isArray(res) ? res : res ? [res] : [];
-      const acts = statement.Action;
-      const actions = Array.isArray(acts) ? acts : acts ? [acts] : [];
-
-      if (resourcesList.includes("*")) {
-        for (const action of actions) {
-          expect(ALLOWED_WILDCARD_ACTIONS.has(action)).toBe(true);
-        }
-      }
-    }
+    // Covers OperatorPolicy, BuildRole, ExecutionRole and every conditional (Fn::If) grant.
+    expectOnlyAllowedWildcards(resources);
   });
 
   it("exports all required outputs", () => {
@@ -298,6 +334,7 @@ describe("CloudFormation Image Stack & Controller (T3.1b)", () => {
   const template = parseCfnTemplate(imagePath);
   const resources = (template.Resources ?? {}) as Record<string, CfnResource>;
   const params = (template.Parameters ?? {}) as Record<string, Record<string, unknown>>;
+  const conditions = (template.Conditions ?? {}) as Record<string, unknown>;
   const outputs = (template.Outputs ?? {}) as Record<string, unknown>;
 
   it("loads and parses infra/image.yaml cleanly", () => {
@@ -408,9 +445,45 @@ describe("CloudFormation Image Stack & Controller (T3.1b)", () => {
     expect(actions).toContain("secretsmanager:DeleteSecret");
   });
 
+  it("grants the controller role wildcard resources only for list-style actions", () => {
+    // secretsmanager:ListSecrets does not support resource-level permissions (docs/iam.md s5).
+    expectOnlyAllowedWildcards(resources);
+
+    const statements = collectAllowStatements(resources)
+      .filter((s) => s.resource === "ControllerExecutionRole")
+      .map((s) => s.statement);
+    const discovery = statements.find((s) => s.Sid === "JanitorSecretDiscovery");
+    expect(asList(discovery?.Action)).toEqual(["secretsmanager:ListSecrets"]);
+
+    const cleanup = statements.find((s) => s.Sid === "JanitorSecretCleanup");
+    expect(asList(cleanup?.Resource)).not.toContain("*");
+  });
+
   it("declares optional KmsKeyArn parameter and HasKmsKey condition in infra/image.yaml", () => {
     expect(params.KmsKeyArn).toBeDefined();
     expect(params.KmsKeyArn?.Type).toBe("String");
+    expect(params.KmsKeyArn?.Default).toBe("");
+    // parseCfnTemplate resolves every short-form tag, including !Ref, to an `Fn::<tag>` key.
+    expect(conditions.HasKmsKey).toEqual({
+      "Fn::Not": [{ "Fn::Equals": [{ "Fn::Ref": "KmsKeyArn" }, ""] }],
+    });
+  });
+
+  it("lets the controller read and write the SSE-KMS bucket when a customer key is configured", () => {
+    const role = resources.ControllerExecutionRole;
+    const policies = role?.Properties.Policies as Array<{
+      PolicyDocument: { Statement: PolicyStatement[] };
+    }>;
+    const rawStatements = policies?.[0]?.PolicyDocument?.Statement ?? [];
+    const conditional = rawStatements.find((s) => s["Fn::If"]?.[0] === "HasKmsKey");
+    expect(conditional, "KMS grant must be conditional on HasKmsKey").toBeDefined();
+
+    const kms = conditional?.["Fn::If"]?.[1] as PolicyStatement;
+    expect(kms.Resource).toEqual({ "Fn::Ref": "KmsKeyArn" });
+    expect(asList(kms.Action)).toEqual(
+      expect.arrayContaining(["kms:Decrypt", "kms:DescribeKey", "kms:GenerateDataKey*"]),
+    );
+    expect(conditional?.["Fn::If"]?.[2]).toEqual({ "Fn::Ref": "AWS::NoValue" });
   });
 
   it("configures EventBridge 1-minute schedule rule and Lambda permission", () => {

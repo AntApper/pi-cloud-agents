@@ -122,74 +122,135 @@ export function createDeterministicTar(
   return Buffer.concat(blocks);
 }
 
+function readTarString(header: Buffer, start: number, length: number): string {
+  const field = header.subarray(start, start + length);
+  const end = field.indexOf(0);
+  return field.subarray(0, end === -1 ? length : end).toString("utf8");
+}
+
+function readTarOctal(header: Buffer, start: number, length: number): number {
+  const raw = readTarString(header, start, length).trim();
+  return raw ? Number.parseInt(raw, 8) || 0 : 0;
+}
+
+/**
+ * Parses the `path` record of a PAX extended header (`x` entry), if present.
+ * Records are `<decimal length> <key>=<value>\n`.
+ */
+function parsePaxPath(data: Buffer): string | undefined {
+  let pos = 0;
+  while (pos < data.length) {
+    const space = data.indexOf(0x20, pos);
+    if (space === -1) return undefined;
+    const recordLength = Number.parseInt(data.subarray(pos, space).toString("ascii"), 10);
+    if (!Number.isFinite(recordLength) || recordLength <= 0) return undefined;
+    const record = data.subarray(space + 1, pos + recordLength).toString("utf8");
+    const eq = record.indexOf("=");
+    if (eq !== -1 && record.slice(0, eq) === "path") {
+      return record.slice(eq + 1).replace(/\n$/, "");
+    }
+    pos += recordLength;
+  }
+  return undefined;
+}
+
+function isInsideRoot(candidate: string, root: string): boolean {
+  return candidate === root || candidate.startsWith(root + path.sep);
+}
+
 /**
  * Extracts a TAR archive into a destination directory.
+ *
+ * Only regular files and directories are materialised; links, devices and FIFOs are skipped so an
+ * archive can never plant a symlink for a later entry to write through. Entry names are checked
+ * lexically and, after the parent directory exists, by `realpath`, so a symlink that already
+ * lives inside the target directory cannot redirect a write outside of it either.
  */
 export function extractTar(tarBuffer: Buffer, targetDir: string): string[] {
   fs.mkdirSync(targetDir, { recursive: true });
+  const root = path.resolve(targetDir);
+  // Paths are returned relative to the caller's `targetDir`; `realRoot` is only used for the
+  // symlink-aware checks (on macOS, for example, /var resolves to /private/var).
+  const realRoot = fs.realpathSync(root);
   const extractedFiles: string[] = [];
   let offset = 0;
+  let pendingLongName: string | undefined;
+  let pendingPaxPath: string | undefined;
+
+  const rejectEntry = (name: string, reason: string): never => {
+    throw new Error(`Security violation: TAR entry '${name}' ${reason} (target '${root}')`);
+  };
 
   while (offset + 512 <= tarBuffer.length) {
     const header = tarBuffer.subarray(offset, offset + 512);
 
-    // Check for empty end-of-archive block (all zeros)
-    let isZero = true;
-    for (let i = 0; i < 512; i++) {
-      if (header[i] !== 0) {
-        isZero = false;
-        break;
-      }
-    }
-
-    if (isZero) {
+    // Two all-zero blocks mark the end of the archive; one is enough to stop reading.
+    if (header.every((byte) => byte === 0)) {
       break;
     }
 
-    // Extract filename
-    let nameEnd = 0;
-    while (nameEnd < 100 && header[nameEnd] !== 0) {
-      nameEnd++;
-    }
-    const filename = header.subarray(0, nameEnd).toString("utf8");
-
-    // Extract size
-    const sizeStr = header.subarray(124, 136).toString("ascii").trim().replace(/\0/g, "");
-    const size = Number.parseInt(sizeStr, 8) || 0;
-
-    // Extract mode
-    const modeStr = header.subarray(100, 108).toString("ascii").trim().replace(/\0/g, "");
-    const mode = Number.parseInt(modeStr, 8) || 0o644;
-
-    // Typeflag
+    const shortName = readTarString(header, 0, 100);
+    const size = readTarOctal(header, 124, 12);
+    const mode = readTarOctal(header, 100, 8) || 0o644;
     const typeFlag = String.fromCharCode(header[156] || 0x30);
+    const isUstar = readTarString(header, 257, 6).startsWith("ustar");
+    const prefix = isUstar ? readTarString(header, 345, 155) : "";
 
     offset += 512;
+    const data = tarBuffer.subarray(offset, offset + size);
+    offset += size + ((512 - (size % 512)) % 512);
 
-    if (filename) {
-      const destPath = path.join(targetDir, filename);
-      const resolvedTarget = path.resolve(targetDir);
-      const resolvedDest = path.resolve(destPath);
-
-      if (resolvedDest !== resolvedTarget && !resolvedDest.startsWith(resolvedTarget + path.sep)) {
-        throw new Error(
-          `Security violation: Directory traversal detected in TAR entry '${filename}' resolving to '${resolvedDest}' outside target '${resolvedTarget}'`,
-        );
-      }
-
-      if (typeFlag === "5" || filename.endsWith("/")) {
-        fs.mkdirSync(destPath, { recursive: true });
-      } else {
-        fs.mkdirSync(path.dirname(destPath), { recursive: true });
-        const content = tarBuffer.subarray(offset, offset + size);
-        fs.writeFileSync(destPath, content, { mode });
-        extractedFiles.push(destPath);
-      }
+    // GNU long-name and PAX headers describe the next entry; they are never files themselves.
+    if (typeFlag === "L") {
+      pendingLongName = data.toString("utf8").replace(/\0+$/, "");
+      continue;
+    }
+    if (typeFlag === "x") {
+      pendingPaxPath = parsePaxPath(data);
+      continue;
+    }
+    if (typeFlag === "g") {
+      continue;
     }
 
-    // Skip payload plus block padding
-    const padding = (512 - (size % 512)) % 512;
-    offset += size + padding;
+    const filename =
+      pendingPaxPath ?? pendingLongName ?? (prefix ? `${prefix}/${shortName}` : shortName);
+    pendingLongName = undefined;
+    pendingPaxPath = undefined;
+
+    if (!filename) continue;
+
+    const isDirectory = typeFlag === "5" || filename.endsWith("/");
+    const isRegularFile = typeFlag === "0" || typeFlag === "\0" || typeFlag === "7";
+    if (!isDirectory && !isRegularFile) {
+      // Symlinks (2), hard links (1), devices (3, 4), FIFOs (6): never materialised.
+      continue;
+    }
+
+    const destPath = path.resolve(root, filename);
+    if (!isInsideRoot(destPath, root)) {
+      rejectEntry(filename, `resolves to '${destPath}' outside the target directory`);
+    }
+
+    if (isDirectory) {
+      fs.mkdirSync(destPath, { recursive: true });
+      if (!isInsideRoot(fs.realpathSync(destPath), realRoot)) {
+        rejectEntry(filename, "is a directory whose real path escapes the target directory");
+      }
+      continue;
+    }
+
+    const parentDir = path.dirname(destPath);
+    fs.mkdirSync(parentDir, { recursive: true });
+    if (!isInsideRoot(fs.realpathSync(parentDir), realRoot)) {
+      rejectEntry(filename, "has a parent directory whose real path escapes the target directory");
+    }
+    if (fs.lstatSync(destPath, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      rejectEntry(filename, "would write through an existing symbolic link");
+    }
+
+    fs.writeFileSync(destPath, data, { mode });
+    extractedFiles.push(destPath);
   }
 
   return extractedFiles;

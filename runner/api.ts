@@ -578,8 +578,11 @@ export class RunnerApiServer {
 
     const promptReq = validationResult.data;
     const message = promptReq.prompt || promptReq.message || "";
-    const mode = promptReq.mode || (promptReq.steer ? "steer" : "prompt");
-    const isFollowUp = mode === "followUp" || mode === "follow_up";
+    // `follow_up` (the WebSocket spelling) is accepted as an alias; the REST API always answers
+    // with the canonical camelCase mode so clients see one spelling (docs/protocol.md 6.5).
+    const requestedMode = promptReq.mode || (promptReq.steer ? "steer" : "prompt");
+    const isFollowUp = requestedMode === "followUp" || requestedMode === "follow_up";
+    const mode: "prompt" | "steer" | "followUp" = isFollowUp ? "followUp" : requestedMode;
 
     // Check conflict if agent is currently streaming and request is a standard prompt without steer / followUp
     if (this.isAgentStreaming && mode === "prompt" && !promptReq.steer) {
@@ -596,7 +599,7 @@ export class RunnerApiServer {
     const pi = this.options.piProcess;
     if (pi) {
       try {
-        const rpcMode = isFollowUp ? "follow_up" : mode === "steer" ? "steer" : "prompt";
+        const rpcMode = mode === "followUp" ? "follow_up" : mode;
         await pi.prompt(message, rpcMode);
       } catch (err) {
         this.sendJson(res, 500, {

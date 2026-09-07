@@ -92,13 +92,20 @@ export const GithubConfigSchema = z.object({
 export type GithubConfig = z.infer<typeof GithubConfigSchema>;
 
 /**
+ * Name of the core CloudFormation stack when the user has not chosen one. Secrets Manager names
+ * (`pi-cloud-agents/<stack>/...`), the image stack (`<stack>-image`) and every fallback in `core/`
+ * derive from this single constant.
+ */
+export const DEFAULT_STACK_NAME = "pi-cloud-agents-core";
+
+/**
  * Local user configuration schema (stored at ~/.pi/agent/pi-cloud-agents.json).
  */
 export const LocalConfigSchema = z.object({
   aws: AwsConfigSchema.default({
     region: "us-east-1",
   }),
-  stackName: z.string().min(1).default("pi-cloud-agents-core"),
+  stackName: z.string().min(1).default(DEFAULT_STACK_NAME),
   image: ImageConfigSchema.default({
     name: "pi-cloud-agents-runner",
     memoryMiB: 4096,

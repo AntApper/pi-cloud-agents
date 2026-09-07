@@ -290,7 +290,12 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
       expect(failRes.details.status).toBe("failed");
       expect(failRes.details.error).toBe("DISPATCH_FAILED");
       expect(failRes.details.dispatchedLive).toBe(false);
-      expect(failRes.content[0]?.text).toContain("Failed to dispatch steer prompt");
+      const text = failRes.content[0]?.text ?? "";
+      expect(text).toContain("Failed to dispatch steer prompt");
+      // what failed -> why (code) -> what to do next
+      expect(text).toContain("Connection refused");
+      expect(text).toContain("(DISPATCH_FAILED)");
+      expect(text).toMatch(/Next: .*cloud_agent\(action="status"/);
 
       promptSpy.mockRestore();
     });

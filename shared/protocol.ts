@@ -316,6 +316,7 @@ export const PromptRequestSchema = z
   .object({
     prompt: z.string().min(1).optional(),
     message: z.string().min(1).optional(),
+    // `follow_up` is the WebSocket spelling, accepted as an alias; responses echo `followUp`.
     mode: z.enum(["prompt", "steer", "followUp", "follow_up"]).default("prompt"),
     steer: z.boolean().optional(),
   })

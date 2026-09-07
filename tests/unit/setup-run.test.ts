@@ -33,6 +33,7 @@ import {
   recordLedgerStep,
 } from "../../core/setup/run.js";
 import type { LocalConfig } from "../../shared/config.js";
+import { declaredTemplateParameters } from "../fakes/cfn-template.js";
 
 const cfnMock = mockClient(CloudFormationClient);
 const s3Mock = mockClient(S3Client);
@@ -210,7 +211,7 @@ describe("Setup Execution Engine (T4.3b)", () => {
     fs.writeFileSync(dummyControllerZip, "PK dummy zip controller");
 
     const result = await executeSetup({
-      config: mockConfig,
+      config: { ...mockConfig, kmsKeyArn: "arn:aws:kms:us-east-1:123456789012:key/test-cmk" },
       clientFactory,
       piAgentDir: tmpDir,
       runnerZipPath: dummyRunnerZip,
@@ -224,6 +225,29 @@ describe("Setup Execution Engine (T4.3b)", () => {
 
     expect(result.success).toBe(true);
     expect(result.bucketName).toBe("test-pi-artifact-bucket-12345");
+
+    // Both stacks receive exactly the parameters their templates declare (CloudFormation rejects
+    // unknown or missing ones), and the customer KMS key reaches both of them.
+    const changeSets = cfnMock.commandCalls(CreateChangeSetCommand).map((c) => c.args[0].input);
+    const byStack = new Map(changeSets.map((cs) => [cs.StackName, cs.Parameters ?? []]));
+    const parameterKeys = (stack: string) =>
+      (byStack.get(stack) ?? []).map((p) => p.ParameterKey ?? "").sort();
+    const parameterValue = (stack: string, key: string) =>
+      (byStack.get(stack) ?? []).find((p) => p.ParameterKey === key)?.ParameterValue;
+
+    expect(parameterKeys("pi-cloud-agents-test")).toEqual(declaredTemplateParameters("core.yaml"));
+    expect(parameterKeys("pi-cloud-agents-test-image")).toEqual(
+      declaredTemplateParameters("image.yaml"),
+    );
+    expect(parameterValue("pi-cloud-agents-test", "KmsKeyArn")).toBe(
+      "arn:aws:kms:us-east-1:123456789012:key/test-cmk",
+    );
+    expect(parameterValue("pi-cloud-agents-test-image", "KmsKeyArn")).toBe(
+      "arn:aws:kms:us-east-1:123456789012:key/test-cmk",
+    );
+    expect(parameterValue("pi-cloud-agents-test-image", "ArtifactBucket")).toBe(
+      "test-pi-artifact-bucket-12345",
+    );
     expect(result.imageArn).toBe(
       "arn:aws:lambda:us-east-1:123456789012:microvm-image:pi-cloud-agents-runner-test",
     );

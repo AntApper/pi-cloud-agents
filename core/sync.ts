@@ -10,14 +10,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
 import { PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
-import type { LocalConfig } from "../shared/config.js";
+import { DEFAULT_STACK_NAME, type LocalConfig } from "../shared/config.js";
 import { AwsClientFactory } from "./aws/clients.js";
 import { AwsSecretsStore, formatPiAuthSecretName } from "./aws/secrets.js";
 import { loadLocalConfig, saveLocalConfig } from "./config.js";
 import { type StoredCredential, parseAuthJson, resolvePiAgentDir } from "./credentials.js";
 import { type BuildBundleResult, buildBundle } from "./pi-config.js";
 
-export const DEFAULT_STACK_NAME = "pi-cloud-agents";
+export { DEFAULT_STACK_NAME };
 
 export interface SyncOptions {
   localConfig?: LocalConfig;

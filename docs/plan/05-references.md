@@ -140,6 +140,14 @@ and Aidan Steele's field notes (awsteele.com, 2026-06-23).
   unless `ForceDeleteWithoutRecovery`; pricing ≈ $0.40 per secret per month + $0.05 per 10,000
   API calls. SSM Parameter Store (standard, free, 4 KB) is used only for non-secret values.
   Verify current limits/pricing in T3.4.
+- `secretsmanager:ListSecrets` supports **no resource-level permissions**: the action must be
+  granted on `Resource: "*"` (AWS IAM service authorization reference, Secrets Manager actions
+  table). It returns names, ARNs and metadata only, never secret values. Every role that lists
+  secrets (operator policy, controller janitor, kill-switch) therefore carries this one wildcard,
+  and the `infra-policies` test allow-lists exactly the list-style actions permitted on `*`.
+- With a customer-managed key, S3 SSE-KMS `PutObject` needs `kms:GenerateDataKey*` in addition to
+  `kms:Decrypt` for `GetObject` (S3 developer guide, "Using server-side encryption with AWS KMS
+  keys"). Roles that write to the artifact bucket carry both; read-only roles carry only Decrypt.
 
 ## Cursor (behavioral reference)
 

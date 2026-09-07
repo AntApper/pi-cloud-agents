@@ -653,9 +653,29 @@ describe("T3.5 Controller Lambda", () => {
         Body: mockS3Body(JSON.stringify({ runId: "run-p2" })) as unknown as never,
       });
 
-    secretsMock.on(ListSecretsCommand).resolves({
-      SecretList: [{ Name: "pi-cloud-agents/test-stack/runs/run-p1/secret1" }],
-    });
+    // run-p1 has its secrets split across two ListSecrets pages; run-p2 has a single page.
+    secretsMock
+      .on(ListSecretsCommand, {
+        NextToken: undefined,
+        Filters: [{ Key: "name", Values: ["pi-cloud-agents/test-stack/runs/run-p1/"] }],
+      })
+      .resolves({
+        SecretList: [{ Name: "pi-cloud-agents/test-stack/runs/run-p1/secret1" }],
+        NextToken: "secrets-page-2",
+      })
+      .on(ListSecretsCommand, {
+        NextToken: "secrets-page-2",
+        Filters: [{ Key: "name", Values: ["pi-cloud-agents/test-stack/runs/run-p1/"] }],
+      })
+      .resolves({
+        SecretList: [{ Name: "pi-cloud-agents/test-stack/runs/run-p1/secret2" }],
+      })
+      .on(ListSecretsCommand, {
+        Filters: [{ Key: "name", Values: ["pi-cloud-agents/test-stack/runs/run-p2/"] }],
+      })
+      .resolves({
+        SecretList: [{ Name: "pi-cloud-agents/test-stack/runs/run-p2/secret1" }],
+      });
 
     secretsMock.on(DeleteSecretCommand).resolves({});
     s3Mock.on(DeleteObjectCommand).resolves({});
@@ -669,5 +689,17 @@ describe("T3.5 Controller Lambda", () => {
 
     expect(summary.terminatedCount).toBe(2);
     expect(microvmsMock.commandCalls(ListMicrovmsCommand).length).toBe(2);
+    expect(secretsMock.commandCalls(ListSecretsCommand).length).toBe(3);
+    const deleted = secretsMock
+      .commandCalls(DeleteSecretCommand)
+      .map((call) => call.args[0].input.SecretId)
+      .sort();
+    expect(deleted).toEqual([
+      "pi-cloud-agents/test-stack/runs/run-p1/secret1",
+      "pi-cloud-agents/test-stack/runs/run-p1/secret2",
+      "pi-cloud-agents/test-stack/runs/run-p2/secret1",
+    ]);
+    const p1Decision = summary.decisions.find((d) => d.runId === "run-p1");
+    expect(p1Decision?.reason).toContain("Force-deleted 2 run-scoped secret(s)");
   });
 });

@@ -11,6 +11,7 @@ import {
   TagResourceCommand,
   UpdateSecretCommand,
 } from "@aws-sdk/client-secrets-manager";
+import { collectPages } from "./paginate.js";
 
 /**
  * Generates the Secrets Manager secret name for a synced pi provider auth entry.
@@ -260,33 +261,25 @@ export class AwsSecretsStore {
    * NEVER calls GetSecretValueCommand.
    */
   private async listSecretsByPrefix(prefix: string): Promise<string[]> {
+    const secrets = await collectPages({
+      fetchPage: (NextToken: string | undefined) =>
+        this.client.send(
+          new ListSecretsCommand({
+            NextToken,
+            Filters: [{ Key: "name", Values: [prefix] }],
+          }),
+        ),
+      nextToken: (page) => page.NextToken,
+      items: (page) => page.SecretList,
+    });
+
     const matchingNames: string[] = [];
-    let nextToken: string | undefined;
-
-    do {
-      const response = await this.client.send(
-        new ListSecretsCommand({
-          NextToken: nextToken,
-          Filters: [
-            {
-              Key: "name",
-              Values: [prefix],
-            },
-          ],
-        }),
-      );
-
-      for (const secret of response.SecretList ?? []) {
-        if (secret.Name?.startsWith(prefix)) {
-          // Exclude secrets that have already been deleted
-          if (secret.DeletedDate === undefined) {
-            matchingNames.push(secret.Name);
-          }
-        }
+    for (const secret of secrets) {
+      // Exclude secrets that are already scheduled for deletion
+      if (secret.Name?.startsWith(prefix) && secret.DeletedDate === undefined) {
+        matchingNames.push(secret.Name);
       }
-
-      nextToken = response.NextToken;
-    } while (nextToken);
+    }
 
     return matchingNames;
   }

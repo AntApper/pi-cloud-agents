@@ -201,7 +201,8 @@ describe("T2.5a Runner HTTP API (REST + SSE)", () => {
       headers: { "Content-Type": "application/json" },
     });
     expect(followUpSnakeRes.statusCode).toBe(200);
-    expect(followUpSnakeRes.json()).toEqual({ status: "accepted", mode: "follow_up" });
+    // The alias is accepted but the response always echoes the canonical spelling.
+    expect(followUpSnakeRes.json()).toEqual({ status: "accepted", mode: "followUp" });
   });
 
   it("POST /v1/prompt validates request schema and rejects bad input", async () => {

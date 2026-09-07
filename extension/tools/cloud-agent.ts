@@ -424,7 +424,17 @@ export async function executeCloudAgentTool(
       }
 
       if (!dispatchedLive) {
-        const errorText = `Failed to dispatch steer prompt to cloud agent ${status.shortRunId}: ${dispatchError || "Agent is not currently running or reachable"}.`;
+        const why = dispatchError || "Agent is not currently running or reachable";
+        const runState = status.status.toLowerCase();
+        let nextStep: string;
+        if (runState === "suspended") {
+          nextStep = `Next: ask the user to run /cloud resume ${status.shortRunId}, then steer again.`;
+        } else if (runState === "running" || runState === "idle") {
+          nextStep = `Next: check the run with cloud_agent(action="status", runId="${status.runId}") and retry; if the VM keeps refusing, ask the user to run /cloud continue ${status.shortRunId}.`;
+        } else {
+          nextStep = `Next: the run has ended, so steering is not possible; launch a new run with cloud_agent(action="launch") or ask the user to run /cloud continue ${status.shortRunId}.`;
+        }
+        const errorText = `Failed to dispatch steer prompt to cloud agent ${status.shortRunId}: ${why} (DISPATCH_FAILED). ${nextStep}`;
         return {
           content: [{ type: "text", text: errorText }],
           details: {

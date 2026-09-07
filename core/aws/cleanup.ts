@@ -26,6 +26,7 @@ import {
   DeleteObjectsCommand,
   ListBucketsCommand,
   ListObjectVersionsCommand,
+  type ListObjectVersionsCommandOutput,
   ListObjectsV2Command,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -42,8 +43,23 @@ import {
   SSMClient,
 } from "@aws-sdk/client-ssm";
 import { maskAccountId, maskArn } from "./mask.js";
+import { collectPages, iteratePages } from "./paginate.js";
 
 export const TEST_RESOURCE_PREFIX = "pi-cloud-agents-test";
+
+/**
+ * Error names for which `ListObjectVersions` is treated as unavailable, so the bucket purge falls
+ * back to a plain `ListObjectsV2` sweep. Anything else (throttling, network, NoSuchBucket) is a
+ * real failure and is surfaced instead of being masked by a second, weaker sweep.
+ */
+const VERSION_LISTING_UNAVAILABLE = new Set([
+  "AccessDenied",
+  "NotImplemented",
+  "MethodNotAllowed",
+  "UnsupportedOperation",
+]);
+
+const S3_PURGE_MAX_PAGES = 1000;
 
 export interface CleanupOptions {
   region?: string;
@@ -131,17 +147,14 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
   // 1. Scan and Terminate Test MicroVMs
   try {
-    let nextToken: string | undefined;
-    const items: MicrovmItem[] = [];
-    do {
-      const vmsOutput = await microvmsClient.send(new ListMicrovmsCommand({ nextToken }));
-      if (vmsOutput.items) {
-        items.push(...vmsOutput.items);
-      }
-      nextToken = vmsOutput.nextToken;
-    } while (nextToken);
+    const vms: MicrovmItem[] = await collectPages({
+      fetchPage: (nextToken: string | undefined) =>
+        microvmsClient.send(new ListMicrovmsCommand({ nextToken })),
+      nextToken: (page) => page.nextToken,
+      items: (page) => page.items,
+    });
 
-    for (const vm of items) {
+    for (const vm of vms) {
       const vmId = vm.microvmId || "";
       const imgArn = vm.imageArn || "";
       const isTestVm =
@@ -188,15 +201,12 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
   if (all) {
     // 2a. Clean Test MicroVM Images
     try {
-      let nextToken: string | undefined;
-      const images: MicrovmImageSummary[] = [];
-      do {
-        const imagesOutput = await microvmsClient.send(new ListMicrovmImagesCommand({ nextToken }));
-        if (imagesOutput.items) {
-          images.push(...imagesOutput.items);
-        }
-        nextToken = imagesOutput.nextToken;
-      } while (nextToken);
+      const images: MicrovmImageSummary[] = await collectPages({
+        fetchPage: (nextToken: string | undefined) =>
+          microvmsClient.send(new ListMicrovmImagesCommand({ nextToken })),
+        nextToken: (page) => page.nextToken,
+        items: (page) => page.items,
+      });
 
       for (const img of images) {
         const imgName = img.name || "";
@@ -215,26 +225,24 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
             try {
               // First attempt to delete versions
               try {
-                let verNextToken: string | undefined;
-                do {
-                  const versionsOutput = await microvmsClient.send(
-                    new ListMicrovmImageVersionsCommand({
-                      imageIdentifier: imgArn,
-                      nextToken: verNextToken,
-                    }),
-                  );
-                  for (const ver of versionsOutput.items ?? []) {
-                    if (ver.imageVersion) {
-                      await microvmsClient.send(
-                        new DeleteMicrovmImageVersionCommand({
-                          imageIdentifier: imgArn,
-                          imageVersion: ver.imageVersion,
-                        }),
-                      );
-                    }
+                const versions = await collectPages({
+                  fetchPage: (nextToken: string | undefined) =>
+                    microvmsClient.send(
+                      new ListMicrovmImageVersionsCommand({ imageIdentifier: imgArn, nextToken }),
+                    ),
+                  nextToken: (page) => page.nextToken,
+                  items: (page) => page.items,
+                });
+                for (const ver of versions) {
+                  if (ver.imageVersion) {
+                    await microvmsClient.send(
+                      new DeleteMicrovmImageVersionCommand({
+                        imageIdentifier: imgArn,
+                        imageVersion: ver.imageVersion,
+                      }),
+                    );
                   }
-                  verNextToken = versionsOutput.nextToken;
-                } while (verNextToken);
+                }
               } catch (_verErr) {
                 // Ignore version listing errors and proceed to image deletion
               }
@@ -265,41 +273,38 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
     // 2b. Clean Test CloudFormation Stacks
     try {
-      let nextToken: string | undefined;
-      const stacks: StackSummary[] = [];
-      do {
-        const cfnOutput = await cfnClient.send(
-          new ListStacksCommand({
-            NextToken: nextToken,
-            StackStatusFilter: [
-              "CREATE_IN_PROGRESS",
-              "CREATE_FAILED",
-              "CREATE_COMPLETE",
-              "ROLLBACK_IN_PROGRESS",
-              "ROLLBACK_FAILED",
-              "ROLLBACK_COMPLETE",
-              "UPDATE_IN_PROGRESS",
-              "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
-              "UPDATE_COMPLETE",
-              "UPDATE_FAILED",
-              "UPDATE_ROLLBACK_IN_PROGRESS",
-              "UPDATE_ROLLBACK_FAILED",
-              "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
-              "UPDATE_ROLLBACK_COMPLETE",
-              "REVIEW_IN_PROGRESS",
-              "IMPORT_IN_PROGRESS",
-              "IMPORT_COMPLETE",
-              "IMPORT_ROLLBACK_IN_PROGRESS",
-              "IMPORT_ROLLBACK_FAILED",
-              "IMPORT_ROLLBACK_COMPLETE",
-            ],
-          }),
-        );
-        if (cfnOutput.StackSummaries) {
-          stacks.push(...cfnOutput.StackSummaries);
-        }
-        nextToken = cfnOutput.NextToken;
-      } while (nextToken);
+      const stacks: StackSummary[] = await collectPages({
+        fetchPage: (NextToken: string | undefined) =>
+          cfnClient.send(
+            new ListStacksCommand({
+              NextToken,
+              StackStatusFilter: [
+                "CREATE_IN_PROGRESS",
+                "CREATE_FAILED",
+                "CREATE_COMPLETE",
+                "ROLLBACK_IN_PROGRESS",
+                "ROLLBACK_FAILED",
+                "ROLLBACK_COMPLETE",
+                "UPDATE_IN_PROGRESS",
+                "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
+                "UPDATE_COMPLETE",
+                "UPDATE_FAILED",
+                "UPDATE_ROLLBACK_IN_PROGRESS",
+                "UPDATE_ROLLBACK_FAILED",
+                "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
+                "UPDATE_ROLLBACK_COMPLETE",
+                "REVIEW_IN_PROGRESS",
+                "IMPORT_IN_PROGRESS",
+                "IMPORT_COMPLETE",
+                "IMPORT_ROLLBACK_IN_PROGRESS",
+                "IMPORT_ROLLBACK_FAILED",
+                "IMPORT_ROLLBACK_COMPLETE",
+              ],
+            }),
+          ),
+        nextToken: (page) => page.NextToken,
+        items: (page) => page.StackSummaries,
+      });
 
       for (const stack of stacks) {
         const stackName = stack.StackName || "";
@@ -341,17 +346,12 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
     // 2c. Clean Test Secrets Manager Secrets
     try {
-      let nextToken: string | undefined;
-      const secrets: SecretListEntry[] = [];
-      do {
-        const secOutput = await secretsClient.send(
-          new ListSecretsCommand({ NextToken: nextToken }),
-        );
-        if (secOutput.SecretList) {
-          secrets.push(...secOutput.SecretList);
-        }
-        nextToken = secOutput.NextToken;
-      } while (nextToken);
+      const secrets: SecretListEntry[] = await collectPages({
+        fetchPage: (NextToken: string | undefined) =>
+          secretsClient.send(new ListSecretsCommand({ NextToken })),
+        nextToken: (page) => page.NextToken,
+        items: (page) => page.SecretList,
+      });
 
       for (const sec of secrets) {
         const secName = sec.Name || "";
@@ -401,17 +401,12 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
     // 2d. Clean Test SSM Parameters
     try {
-      let nextToken: string | undefined;
-      const params: ParameterMetadata[] = [];
-      do {
-        const ssmOutput = await ssmClient.send(
-          new DescribeParametersCommand({ NextToken: nextToken }),
-        );
-        if (ssmOutput.Parameters) {
-          params.push(...ssmOutput.Parameters);
-        }
-        nextToken = ssmOutput.NextToken;
-      } while (nextToken);
+      const params: ParameterMetadata[] = await collectPages({
+        fetchPage: (NextToken: string | undefined) =>
+          ssmClient.send(new DescribeParametersCommand({ NextToken })),
+        nextToken: (page) => page.NextToken,
+        items: (page) => page.Parameters,
+      });
 
       for (const param of params) {
         const paramName = param.Name || "";
@@ -456,8 +451,12 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
     // 2e. Clean Test S3 Buckets
     try {
-      const s3Output = await s3Client.send(new ListBucketsCommand({}));
-      const buckets = s3Output.Buckets ?? [];
+      const buckets = await collectPages({
+        fetchPage: (ContinuationToken: string | undefined) =>
+          s3Client.send(new ListBucketsCommand({ ContinuationToken })),
+        nextToken: (page) => page.ContinuationToken,
+        items: (page) => page.Buckets,
+      });
 
       for (const bucket of buckets) {
         const bucketName = bucket.Name || "";
@@ -501,19 +500,32 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
   return report;
 }
 
+interface VersionMarker {
+  keyMarker?: string;
+  versionIdMarker?: string;
+}
+
 async function emptyAndDeleteS3Bucket(s3Client: S3Client, bucketName: string): Promise<void> {
-  // Delete all versions / delete markers
   try {
-    let keyMarker: string | undefined;
-    let versionIdMarker: string | undefined;
-    do {
-      const versions = await s3Client.send(
-        new ListObjectVersionsCommand({
-          Bucket: bucketName,
-          KeyMarker: keyMarker,
-          VersionIdMarker: versionIdMarker,
-        }),
-      );
+    const versionPages = iteratePages<ListObjectVersionsCommandOutput, VersionMarker>(
+      {
+        fetchPage: (marker) =>
+          s3Client.send(
+            new ListObjectVersionsCommand({
+              Bucket: bucketName,
+              KeyMarker: marker?.keyMarker,
+              VersionIdMarker: marker?.versionIdMarker,
+            }),
+          ),
+        nextToken: (page) =>
+          page.IsTruncated
+            ? { keyMarker: page.NextKeyMarker, versionIdMarker: page.NextVersionIdMarker }
+            : undefined,
+      },
+      { maxPages: S3_PURGE_MAX_PAGES },
+    );
+
+    for await (const versions of versionPages) {
       const objectsToDelete = [
         ...(versions.Versions ?? []).map((v) => ({ Key: v.Key!, VersionId: v.VersionId })),
         ...(versions.DeleteMarkers ?? []).map((d) => ({ Key: d.Key!, VersionId: d.VersionId })),
@@ -526,19 +538,26 @@ async function emptyAndDeleteS3Bucket(s3Client: S3Client, bucketName: string): P
           }),
         );
       }
-      keyMarker = versions.IsTruncated ? versions.NextKeyMarker : undefined;
-      versionIdMarker = versions.IsTruncated ? versions.NextVersionIdMarker : undefined;
-    } while (keyMarker || versionIdMarker);
-  } catch (_e) {
-    // Try simple objects list
-    let continuationToken: string | undefined;
-    do {
-      const list = await s3Client.send(
-        new ListObjectsV2Command({
-          Bucket: bucketName,
-          ContinuationToken: continuationToken,
-        }),
-      );
+    }
+  } catch (err: unknown) {
+    const name = err instanceof Error ? err.name : "";
+    if (!VERSION_LISTING_UNAVAILABLE.has(name)) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Purging object versions from bucket '${bucketName}' failed: ${message}`, {
+        cause: err,
+      });
+    }
+
+    const objectPages = iteratePages(
+      {
+        fetchPage: (ContinuationToken: string | undefined) =>
+          s3Client.send(new ListObjectsV2Command({ Bucket: bucketName, ContinuationToken })),
+        nextToken: (page) => (page.IsTruncated ? page.NextContinuationToken : undefined),
+      },
+      { maxPages: S3_PURGE_MAX_PAGES },
+    );
+
+    for await (const list of objectPages) {
       const keys = (list.Contents ?? []).map((c) => ({ Key: c.Key! }));
       if (keys.length > 0) {
         await s3Client.send(
@@ -548,8 +567,7 @@ async function emptyAndDeleteS3Bucket(s3Client: S3Client, bucketName: string): P
           }),
         );
       }
-      continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
-    } while (continuationToken);
+    }
   }
 
   await s3Client.send(new DeleteBucketCommand({ Bucket: bucketName }));

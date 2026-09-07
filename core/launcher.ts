@@ -19,6 +19,7 @@ import {
 } from "../shared/protocol.js";
 import { AwsClientFactory, mapAwsError } from "./aws/clients.js";
 import { MicrovmImageManager } from "./aws/image.js";
+import { collectPages } from "./aws/paginate.js";
 import { formatGitHubSecretName } from "./aws/secrets.js";
 import { RunClient } from "./client/run-client.js";
 import { loadLocalConfig, loadRepoConfig } from "./config.js";
@@ -310,14 +311,15 @@ export async function launchCloudRun(options: LaunchRunOptions): Promise<LaunchR
 
   // Query active running/suspended MicroVMs
   try {
-    const listRes = await lambdaMicrovmsClient.send(
-      new ListMicrovmsCommand({
-        imageIdentifier: imageArn,
-      }),
-    );
-    const activeVms = (listRes.items ?? []).filter(
-      (vm) => vm.state === "RUNNING" || vm.state === "SUSPENDED",
-    );
+    const imageVms = await collectPages({
+      fetchPage: (nextToken: string | undefined) =>
+        lambdaMicrovmsClient.send(
+          new ListMicrovmsCommand({ imageIdentifier: imageArn, nextToken }),
+        ),
+      nextToken: (page) => page.nextToken,
+      items: (page) => page.items,
+    });
+    const activeVms = imageVms.filter((vm) => vm.state === "RUNNING" || vm.state === "SUSPENDED");
 
     const maxConcurrent = config.defaults.maxConcurrent ?? 3;
     if (activeVms.length >= maxConcurrent) {

@@ -35,6 +35,7 @@
     "test:integration": "vitest run tests/integration",
     "schemas:gen": "tsx scripts/gen-schemas.ts",
     "build": "tsx scripts/build.ts",
+    "prepublishOnly": "npm run check && npm run build",
     "e2e:local": "tsx scripts/e2e-local.ts",
     "e2e:aws": "tsx scripts/e2e-aws.ts",
     "aws:cleanup": "tsx scripts/aws-cleanup.ts",

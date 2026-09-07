@@ -1,8 +1,10 @@
 /**
- * Build orchestrator for pi-cloud-agents (T2.9 & T3.5).
+ * Build orchestrator for pi-cloud-agents (T2.9, T3.5, T4.3c).
  *  1. Bundles runner/main.ts -> dist/runner/index.js (esbuild, Node 22, ESM, sourcemap)
  *  2. Bundles infra/controller/handler.ts -> dist/controller/index.js + dist/controller.zip (< 2 MB)
- *  3. Builds dist/image/app.zip (deterministic, < 5 MB) + dist/image/manifest.json
+ *  3. Bundles cli/main.ts -> dist/cli/main.js (the `pi-cloud-agents` bin; runtime dependencies
+ *     stay external and resolve from the installed package's node_modules)
+ *  4. Builds dist/image/app.zip (deterministic, < 5 MB) + dist/image/manifest.json
  */
 
 import fs from "node:fs";
@@ -23,6 +25,7 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 export interface BuildSummary {
   runnerBundlePath: string;
   controllerZipPath: string;
+  cliBundlePath: string;
   imageZip: ImageBuildResult;
 }
 
@@ -90,11 +93,15 @@ export async function buildAll(): Promise<BuildSummary> {
   const controllerZipPath = path.join(distDir, "controller.zip");
   fs.writeFileSync(controllerZipPath, controllerZipBuffer);
 
-  // 3. Bundle CLI entrypoint using esbuild
+  // 3. Bundle the CLI entrypoint. Only our own sources are inlined; every bare package import
+  //    (@aws-sdk/*, zod, ws) stays external so the published bin loads them from the package's
+  //    own node_modules instead of shipping a second copy. No sourcemap: it would double the
+  //    tarball and stack traces are never shown to users.
   const cliDir = path.join(distDir, "cli");
   fs.mkdirSync(cliDir, { recursive: true });
   const cliEntry = path.join(REPO_ROOT, "cli", "main.ts");
   const cliOut = path.join(cliDir, "main.js");
+  fs.rmSync(`${cliOut}.map`, { force: true });
 
   await esbuild.build({
     entryPoints: [cliEntry],
@@ -103,10 +110,8 @@ export async function buildAll(): Promise<BuildSummary> {
     platform: "node",
     target: "node22",
     format: "esm",
-    banner: {
-      js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
-    },
-    sourcemap: "external",
+    packages: "external",
+    sourcemap: false,
     logLevel: "warning",
   });
   fs.chmodSync(cliOut, 0o755);
@@ -121,6 +126,7 @@ export async function buildAll(): Promise<BuildSummary> {
   return {
     runnerBundlePath: runnerOut,
     controllerZipPath,
+    cliBundlePath: cliOut,
     imageZip,
   };
 }
@@ -135,6 +141,7 @@ if (
       console.log("Build completed successfully:");
       console.log(`  Runner:     ${summary.runnerBundlePath}`);
       console.log(`  Controller: ${summary.controllerZipPath}`);
+      console.log(`  CLI:        ${summary.cliBundlePath}`);
       console.log(
         `  Image ZIP:  ${summary.imageZip.zipPath} (${summary.imageZip.sizeBytes} bytes, SHA256: ${summary.imageZip.sha256})`,
       );

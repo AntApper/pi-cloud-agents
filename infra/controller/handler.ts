@@ -20,6 +20,7 @@ import {
   ListSecretsCommand,
   SecretsManagerClient,
 } from "@aws-sdk/client-secrets-manager";
+import { collectPages } from "../../core/aws/paginate.js";
 
 export interface ControllerDecision {
   microvmId: string;
@@ -142,21 +143,21 @@ export async function executeControllerRun(
   let otherCount = 0;
 
   // 1. List MicroVMs for target image
-  const microvms: MicrovmItem[] = [];
+  let microvms: MicrovmItem[] = [];
   try {
-    let nextToken: string | undefined;
-    do {
-      const listOutput = await microvmsClient.send(new ListMicrovmsCommand({ nextToken }));
-      const items = (listOutput.items ?? []).filter((vm) => {
-        if (!vm.imageArn) return true;
-        return (
-          vm.imageArn.includes(imageName) ||
-          (vm.imageArn.includes(stackName) && vm.imageArn.includes("runner"))
-        );
-      });
-      microvms.push(...items);
-      nextToken = listOutput.nextToken;
-    } while (nextToken);
+    const allVms = await collectPages({
+      fetchPage: (nextToken: string | undefined) =>
+        microvmsClient.send(new ListMicrovmsCommand({ nextToken })),
+      nextToken: (page) => page.nextToken,
+      items: (page) => page.items,
+    });
+    microvms = allVms.filter((vm) => {
+      if (!vm.imageArn) return true;
+      return (
+        vm.imageArn.includes(imageName) ||
+        (vm.imageArn.includes(stackName) && vm.imageArn.includes("runner"))
+      );
+    });
   } catch (err: unknown) {
     const errorMsg = (err as Error)?.message || String(err);
     errors.push({ error: `Failed to list MicroVMs: ${errorMsg}` });
@@ -712,27 +713,18 @@ async function processTerminatedMicrovm(ctx: ProcessTerminatedVmContext): Promis
   if (runId) {
     const runSecretPrefix = `pi-cloud-agents/${ctx.stackName}/runs/${runId}/`;
     try {
-      let nextToken: string | undefined;
-      const secretsToDelete: Array<{ Name?: string }> = [];
-      do {
-        const listOutput = await ctx.secretsClient.send(
-          new ListSecretsCommand({
-            NextToken: nextToken,
-            Filters: [
-              {
-                Key: "name",
-                Values: [runSecretPrefix],
-              },
-            ],
-          }),
-        );
-
-        const filtered = (listOutput.SecretList ?? []).filter((s) =>
-          s.Name?.startsWith(runSecretPrefix),
-        );
-        secretsToDelete.push(...filtered);
-        nextToken = listOutput.NextToken;
-      } while (nextToken);
+      const listed = await collectPages({
+        fetchPage: (NextToken: string | undefined) =>
+          ctx.secretsClient.send(
+            new ListSecretsCommand({
+              NextToken,
+              Filters: [{ Key: "name", Values: [runSecretPrefix] }],
+            }),
+          ),
+        nextToken: (page) => page.NextToken,
+        items: (page) => page.SecretList,
+      });
+      const secretsToDelete = listed.filter((s) => s.Name?.startsWith(runSecretPrefix));
 
       for (const secret of secretsToDelete) {
         if (!secret.Name) continue;
