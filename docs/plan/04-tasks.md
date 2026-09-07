@@ -895,6 +895,43 @@ Repo-level commands (created in T0.1, used everywhere):
   every MVP task `done`.
 - Passed when: owner marks `G5 passed`; v0.1.0 is published (npm) and tagged.
 
+### T5.10 — Post-release review fixes: packaging, IAM hygiene, bounded pagination — M
+- Depends on: G5
+- Context: multi-model review of commits `d351dab` and `20a6001` (post-G5 review fixes and the
+  CLI bundle). Findings recorded in `docs/evidence/T5.10.md`.
+- Do: `prepublishOnly` guard so the `bin` target `dist/cli/main.js` always exists in a published
+  tarball; CLI bundle keeps runtime dependencies external and stops inlining `esbuild` and
+  `scripts/build.ts`; `BuildSummary` reports the CLI path; a shared bounded pagination helper
+  (page cap, stuck-token guard, `AbortSignal`) replaces every hand-rolled `do...while` in
+  `core/aws/cleanup.ts`, `infra/controller/handler.ts`, `core/status.ts` and covers the still
+  single-page calls in `core/launcher.ts` (`maxConcurrent` guard), `core/list.ts`,
+  `core/aws/image.ts` (`pruneVersions`); `resolveRunId` lists with `Delimiter: "/"`;
+  `emptyAndDeleteS3Bucket` falls back to the unversioned sweep only on access/unsupported errors;
+  `KmsKeyArn` is passed to the image stack by both deployers and the controller statement gains
+  `kms:GenerateDataKey*` (SSE-KMS bucket writes); `secretsmanager:ListSecrets` on `Resource: "*"`
+  is documented (`docs/iam.md` section 5, `05-references.md`) and the wildcard guard test covers
+  `ControllerExecutionRole`; one default stack name (`shared/config.ts`) used everywhere incl. the
+  wizard's GitHub secret name; runner `/v1/prompt` echoes the canonical `followUp` mode and the
+  alias is documented; steer failure text says what to do next; `extractTar` also guards
+  symlinked parents, honours the ustar `prefix` field and skips GNU/PAX header entries; tests
+  strengthened (two-page `ListSecrets`, real `git` env path, `HasKmsKey` condition).
+- Validate: `npm run check`; `npm run build` then `npm pack --dry-run` lists `dist/cli/main.js`
+  and no `dist/cli/main.js.map`; `rg -c "node_modules/esbuild" dist/cli/main.js` is 0; unit tests
+  for pagination cap, S3 fallback, KMS wiring, tar hardening.
+- Done when: green; evidence in `docs/evidence/T5.10.md`; JOURNAL entry.
+
+### T5.11 — `/cloud update` passes the image stack its declared parameters — S
+- Depends on: T4.10
+- Context: `core/lifecycle-ops.ts` sends `CoreStackName`, `RunnerZipKey`, `ControllerZipKey` and
+  omits `ArtifactBucket`, `RunnerArtifactKey`, `ControllerArtifactKey`, `BuildRoleArn`,
+  `ExecutionRoleArn`, `BaseImageArn`, `ImageLogGroup`; `StackDeployer.deployStack` forwards
+  parameters verbatim, so CloudFormation rejects every update change set.
+- Do: derive the parameter map from the core stack outputs exactly as `core/setup/run.ts` does
+  (including `KmsKeyArn`); fail with an actionable error when a required output is missing.
+- Validate: unit test asserts the `CreateChangeSet` parameter keys equal the `Parameters` declared
+  in `infra/image.yaml`; `npm run check`.
+- Done when: green; evidence in `docs/evidence/T5.11.md`.
+
 ---
 
 ## Phase 6 — Backlog (post-MVP, unscheduled)
