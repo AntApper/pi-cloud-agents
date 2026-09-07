@@ -90,7 +90,28 @@ export async function buildAll(): Promise<BuildSummary> {
   const controllerZipPath = path.join(distDir, "controller.zip");
   fs.writeFileSync(controllerZipPath, controllerZipBuffer);
 
-  // 3. Build deterministic dist/image/app.zip & manifest.json
+  // 3. Bundle CLI entrypoint using esbuild
+  const cliDir = path.join(distDir, "cli");
+  fs.mkdirSync(cliDir, { recursive: true });
+  const cliEntry = path.join(REPO_ROOT, "cli", "main.ts");
+  const cliOut = path.join(cliDir, "main.js");
+
+  await esbuild.build({
+    entryPoints: [cliEntry],
+    outfile: cliOut,
+    bundle: true,
+    platform: "node",
+    target: "node22",
+    format: "esm",
+    banner: {
+      js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+    },
+    sourcemap: "external",
+    logLevel: "warning",
+  });
+  fs.chmodSync(cliOut, 0o755);
+
+  // 4. Build deterministic dist/image/app.zip & manifest.json
   const imageZip = await buildImageZip({
     runnerBundlePath: runnerOut,
     dockerfilePath: path.join(REPO_ROOT, "image", "Dockerfile"),

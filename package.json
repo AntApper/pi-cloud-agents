@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "pi-cloud-agents": "./cli/main.js"
+    "pi-cloud-agents": "./dist/cli/main.js"
   },
   "keywords": ["pi-package"],
   "pi": {
