@@ -142,16 +142,21 @@ export async function executeControllerRun(
   let otherCount = 0;
 
   // 1. List MicroVMs for target image
-  let microvms: MicrovmItem[] = [];
+  const microvms: MicrovmItem[] = [];
   try {
-    const listOutput = await microvmsClient.send(new ListMicrovmsCommand({}));
-    microvms = (listOutput.items ?? []).filter((vm) => {
-      if (!vm.imageArn) return true;
-      return (
-        vm.imageArn.includes(imageName) ||
-        (vm.imageArn.includes(stackName) && vm.imageArn.includes("runner"))
-      );
-    });
+    let nextToken: string | undefined;
+    do {
+      const listOutput = await microvmsClient.send(new ListMicrovmsCommand({ nextToken }));
+      const items = (listOutput.items ?? []).filter((vm) => {
+        if (!vm.imageArn) return true;
+        return (
+          vm.imageArn.includes(imageName) ||
+          (vm.imageArn.includes(stackName) && vm.imageArn.includes("runner"))
+        );
+      });
+      microvms.push(...items);
+      nextToken = listOutput.nextToken;
+    } while (nextToken);
   } catch (err: unknown) {
     const errorMsg = (err as Error)?.message || String(err);
     errors.push({ error: `Failed to list MicroVMs: ${errorMsg}` });
@@ -707,20 +712,27 @@ async function processTerminatedMicrovm(ctx: ProcessTerminatedVmContext): Promis
   if (runId) {
     const runSecretPrefix = `pi-cloud-agents/${ctx.stackName}/runs/${runId}/`;
     try {
-      const listOutput = await ctx.secretsClient.send(
-        new ListSecretsCommand({
-          Filters: [
-            {
-              Key: "name",
-              Values: [runSecretPrefix],
-            },
-          ],
-        }),
-      );
+      let nextToken: string | undefined;
+      const secretsToDelete: Array<{ Name?: string }> = [];
+      do {
+        const listOutput = await ctx.secretsClient.send(
+          new ListSecretsCommand({
+            NextToken: nextToken,
+            Filters: [
+              {
+                Key: "name",
+                Values: [runSecretPrefix],
+              },
+            ],
+          }),
+        );
 
-      const secretsToDelete = (listOutput.SecretList ?? []).filter((s) =>
-        s.Name?.startsWith(runSecretPrefix),
-      );
+        const filtered = (listOutput.SecretList ?? []).filter((s) =>
+          s.Name?.startsWith(runSecretPrefix),
+        );
+        secretsToDelete.push(...filtered);
+        nextToken = listOutput.NextToken;
+      } while (nextToken);
 
       for (const secret of secretsToDelete) {
         if (!secret.Name) continue;

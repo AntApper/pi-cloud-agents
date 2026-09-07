@@ -20,6 +20,7 @@ import {
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { mockClient } from "aws-sdk-client-mock";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { RunClient } from "../../core/client/run-client.js";
 import * as launcherModule from "../../core/launcher.js";
 import {
   type CloudAgentAction,
@@ -243,14 +244,21 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
     });
 
     it("executes steer action with steer mode and follow-up mode", async () => {
+      const promptSpy = vi
+        .spyOn(RunClient.prototype, "prompt")
+        .mockResolvedValue({ status: "accepted" });
+
       const steerRes = await executeCloudAgentTool("call-5", {
         action: "steer",
         runId: "run-20260906-7f3a2c",
         prompt: "Focus on unit tests first",
       });
       expect(steerRes.details.action).toBe("steer");
+      expect(steerRes.details.status).toBe("dispatched");
+      expect(steerRes.details.dispatchedLive).toBe(true);
       expect(steerRes.details.followUp).toBe(false);
       expect(steerRes.content[0]?.text).toContain("steer mode");
+      expect(steerRes.content[0]?.text).toContain("live connected");
 
       const followUpRes = await executeCloudAgentTool("call-6", {
         action: "steer",
@@ -259,7 +267,32 @@ describe("T4.9 Cloud Agent Tool for Local LLM", () => {
         followUp: true,
       });
       expect(followUpRes.details.followUp).toBe(true);
+      expect(followUpRes.details.status).toBe("dispatched");
+      expect(followUpRes.details.dispatchedLive).toBe(true);
       expect(followUpRes.content[0]?.text).toContain("follow-up mode");
+      expect(followUpRes.content[0]?.text).toContain("live connected");
+
+      promptSpy.mockRestore();
+    });
+
+    it("returns explicit failure status when steer dispatch fails", async () => {
+      const promptSpy = vi
+        .spyOn(RunClient.prototype, "prompt")
+        .mockRejectedValue(new Error("Connection refused"));
+
+      const failRes = await executeCloudAgentTool("call-5-fail", {
+        action: "steer",
+        runId: "run-20260906-7f3a2c",
+        prompt: "Focus on unit tests first",
+      });
+
+      expect(failRes.details.action).toBe("steer");
+      expect(failRes.details.status).toBe("failed");
+      expect(failRes.details.error).toBe("DISPATCH_FAILED");
+      expect(failRes.details.dispatchedLive).toBe(false);
+      expect(failRes.content[0]?.text).toContain("Failed to dispatch steer prompt");
+
+      promptSpy.mockRestore();
     });
 
     it("executes stop action and terminates run", async () => {

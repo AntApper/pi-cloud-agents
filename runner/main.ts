@@ -58,6 +58,7 @@ export interface RunnerServerOptions {
     args: string[],
     cwd?: string,
     timeoutMs?: number,
+    env?: NodeJS.ProcessEnv,
   ) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
   validateSelfCheck?: () => Promise<ValidationResult> | ValidationResult;
 }
@@ -268,6 +269,7 @@ export class RunnerServer {
             maxDurationSec: payload.options?.maxDurationSec ?? DEFAULT_MAX_DURATION_SEC,
             autoPush: payload.options?.autoPush ?? true,
             repoPath: this.workspaceResult.workingDirectory,
+            env: this.workspaceResult.effectiveEnv,
             gitRunner: this.options.customGitRunner,
           },
           this.logger,

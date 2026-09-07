@@ -57,6 +57,15 @@ describe("T1.4 pi config bundle builder (core/pi-config)", () => {
         "# Skill Doc\n",
       );
     });
+
+    it("rejects TAR archive entries with directory traversal attempts", () => {
+      const entries = [{ name: "../evil.txt", content: "malicious content\n" }];
+
+      const tar = createDeterministicTar(entries);
+      const destDir = path.join(tempDir, "extracted-safe");
+
+      expect(() => extractTar(tar, destDir)).toThrow(/Directory traversal detected/);
+    });
   });
 
   describe("Settings Sanitization", () => {

@@ -45,11 +45,13 @@ export interface LifecyclePolicyOptions {
   pushTimeoutMs?: number;
   maxDurationWarningWindowSec?: number;
   repoPath?: string;
+  env?: NodeJS.ProcessEnv;
   clock?: () => number;
   gitRunner?: (
     args: string[],
     cwd?: string,
     timeoutMs?: number,
+    env?: NodeJS.ProcessEnv,
   ) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
 }
 
@@ -83,6 +85,7 @@ export class LifecyclePolicyManager extends EventEmitter {
   private readonly logger?: Logger;
   private readonly clock: () => number;
   private readonly repoPath?: string;
+  private readonly env?: NodeJS.ProcessEnv;
 
   private readonly idleGraceSec: number;
   private readonly suspendAfterIdleSec: number;
@@ -95,6 +98,7 @@ export class LifecyclePolicyManager extends EventEmitter {
     args: string[],
     cwd?: string,
     timeoutMs?: number,
+    env?: NodeJS.ProcessEnv,
   ) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
 
   private startTime: number;
@@ -123,6 +127,7 @@ export class LifecyclePolicyManager extends EventEmitter {
     this.logger = logger;
     this.clock = options.clock ?? (() => Date.now());
     this.repoPath = options.repoPath;
+    this.env = options.env;
     this.customGitRunner = options.gitRunner;
 
     const payloadOpts = payload?.options;
@@ -380,11 +385,12 @@ export class LifecyclePolicyManager extends EventEmitter {
         timeout = 10000,
       ): Promise<{ stdout: string; stderr: string; exitCode: number }> => {
         if (this.customGitRunner) {
-          return this.customGitRunner(args, this.repoPath, timeout);
+          return this.customGitRunner(args, this.repoPath, timeout, this.env);
         }
         try {
           const res = await execFileAsync("git", args, {
             cwd: this.repoPath,
+            env: this.env ?? process.env,
             timeout,
           });
           return { stdout: res.stdout, stderr: res.stderr, exitCode: 0 };

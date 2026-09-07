@@ -163,7 +163,7 @@ function resolveLocalPiFiles(options: SyncOptions): {
  */
 export async function syncPiConfig(options: SyncOptions = {}): Promise<SyncResult> {
   const config = options.localConfig ?? loadLocalConfig();
-  const stackName = options.stackName ?? DEFAULT_STACK_NAME;
+  const stackName = options.stackName ?? config.stackName ?? DEFAULT_STACK_NAME;
   const factory = options.clientFactory ?? new AwsClientFactory();
 
   const { authEntries, modelsJson, settingsJson, agentMd } = resolveLocalPiFiles(options);

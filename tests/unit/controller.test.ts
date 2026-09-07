@@ -612,4 +612,62 @@ describe("T3.5 Controller Lambda", () => {
     expect(parsed.runningCount).toBe(0);
     expect(parsed.decisions).toEqual([]);
   });
+
+  it("paginates ListMicrovmsCommand and ListSecretsCommand across multiple pages", async () => {
+    const fixedNow = new Date("2026-09-06T12:00:00Z").getTime();
+
+    microvmsMock
+      .on(ListMicrovmsCommand, { nextToken: undefined })
+      .resolves({
+        items: [
+          {
+            microvmId: "vm-page-1",
+            state: "TERMINATED",
+            imageArn: "arn:aws:lambda:us-east-1:123456789012:microvm-image:pi-cloud-agents-runner",
+            imageVersion: "1.0",
+            startedAt: new Date(fixedNow - 300_000),
+          },
+        ],
+        nextToken: "page-2-token",
+      })
+      .on(ListMicrovmsCommand, { nextToken: "page-2-token" })
+      .resolves({
+        items: [
+          {
+            microvmId: "vm-page-2",
+            state: "TERMINATED",
+            imageArn: "arn:aws:lambda:us-east-1:123456789012:microvm-image:pi-cloud-agents-runner",
+            imageVersion: "1.0",
+            startedAt: new Date(fixedNow - 300_000),
+          },
+        ],
+      });
+
+    s3Mock
+      .on(GetObjectCommand, { Bucket: "test-bucket", Key: "index/vm-page-1" })
+      .resolves({
+        Body: mockS3Body(JSON.stringify({ runId: "run-p1" })) as unknown as never,
+      })
+      .on(GetObjectCommand, { Bucket: "test-bucket", Key: "index/vm-page-2" })
+      .resolves({
+        Body: mockS3Body(JSON.stringify({ runId: "run-p2" })) as unknown as never,
+      });
+
+    secretsMock.on(ListSecretsCommand).resolves({
+      SecretList: [{ Name: "pi-cloud-agents/test-stack/runs/run-p1/secret1" }],
+    });
+
+    secretsMock.on(DeleteSecretCommand).resolves({});
+    s3Mock.on(DeleteObjectCommand).resolves({});
+    s3Mock.on(PutObjectCommand).resolves({});
+
+    const summary = await executeControllerRun({
+      stackName: "test-stack",
+      bucketName: "test-bucket",
+      clock: () => fixedNow,
+    });
+
+    expect(summary.terminatedCount).toBe(2);
+    expect(microvmsMock.commandCalls(ListMicrovmsCommand).length).toBe(2);
+  });
 });

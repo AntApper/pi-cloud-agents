@@ -244,4 +244,27 @@ describe("T2.7 Lifecycle Policy & Idle Management", () => {
     expect(summary.policy.maxDurationSec).toBe(28800);
     expect(summary.suggestedAction).toBe("none");
   });
+
+  it("passes effectiveEnv with GIT_ASKPASS to git execution during checkpoint", async () => {
+    let gitEnvPassed: NodeJS.ProcessEnv | undefined;
+    const lifecycle = new LifecyclePolicyManager(stateMachine, undefined, {
+      repoPath: repoDir,
+      env: {
+        GIT_ASKPASS: "/opt/pi-cloud/askpass.sh",
+        GITHUB_TOKEN: "secret-token-test",
+      },
+      gitRunner: async (_args, _cwd, _timeoutMs, env) => {
+        gitEnvPassed = env;
+        return { stdout: "mock", stderr: "", exitCode: 0 };
+      },
+      clock: fakeClock,
+    });
+
+    fs.writeFileSync(path.join(repoDir, "change.txt"), "new change");
+    await lifecycle.createCheckpointCommit("test commit with env");
+
+    expect(gitEnvPassed).toBeDefined();
+    expect(gitEnvPassed?.GIT_ASKPASS).toBe("/opt/pi-cloud/askpass.sh");
+    expect(gitEnvPassed?.GITHUB_TOKEN).toBe("secret-token-test");
+  });
 });

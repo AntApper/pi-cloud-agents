@@ -131,8 +131,15 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
   // 1. Scan and Terminate Test MicroVMs
   try {
-    const vmsOutput = await microvmsClient.send(new ListMicrovmsCommand({}));
-    const items: MicrovmItem[] = vmsOutput.items ?? [];
+    let nextToken: string | undefined;
+    const items: MicrovmItem[] = [];
+    do {
+      const vmsOutput = await microvmsClient.send(new ListMicrovmsCommand({ nextToken }));
+      if (vmsOutput.items) {
+        items.push(...vmsOutput.items);
+      }
+      nextToken = vmsOutput.nextToken;
+    } while (nextToken);
 
     for (const vm of items) {
       const vmId = vm.microvmId || "";
@@ -181,8 +188,15 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
   if (all) {
     // 2a. Clean Test MicroVM Images
     try {
-      const imagesOutput = await microvmsClient.send(new ListMicrovmImagesCommand({}));
-      const images: MicrovmImageSummary[] = imagesOutput.items ?? [];
+      let nextToken: string | undefined;
+      const images: MicrovmImageSummary[] = [];
+      do {
+        const imagesOutput = await microvmsClient.send(new ListMicrovmImagesCommand({ nextToken }));
+        if (imagesOutput.items) {
+          images.push(...imagesOutput.items);
+        }
+        nextToken = imagesOutput.nextToken;
+      } while (nextToken);
 
       for (const img of images) {
         const imgName = img.name || "";
@@ -201,19 +215,26 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
             try {
               // First attempt to delete versions
               try {
-                const versionsOutput = await microvmsClient.send(
-                  new ListMicrovmImageVersionsCommand({ imageIdentifier: imgArn }),
-                );
-                for (const ver of versionsOutput.items ?? []) {
-                  if (ver.imageVersion) {
-                    await microvmsClient.send(
-                      new DeleteMicrovmImageVersionCommand({
-                        imageIdentifier: imgArn,
-                        imageVersion: ver.imageVersion,
-                      }),
-                    );
+                let verNextToken: string | undefined;
+                do {
+                  const versionsOutput = await microvmsClient.send(
+                    new ListMicrovmImageVersionsCommand({
+                      imageIdentifier: imgArn,
+                      nextToken: verNextToken,
+                    }),
+                  );
+                  for (const ver of versionsOutput.items ?? []) {
+                    if (ver.imageVersion) {
+                      await microvmsClient.send(
+                        new DeleteMicrovmImageVersionCommand({
+                          imageIdentifier: imgArn,
+                          imageVersion: ver.imageVersion,
+                        }),
+                      );
+                    }
                   }
-                }
+                  verNextToken = versionsOutput.nextToken;
+                } while (verNextToken);
               } catch (_verErr) {
                 // Ignore version listing errors and proceed to image deletion
               }
@@ -244,33 +265,41 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
     // 2b. Clean Test CloudFormation Stacks
     try {
-      const cfnOutput = await cfnClient.send(
-        new ListStacksCommand({
-          StackStatusFilter: [
-            "CREATE_IN_PROGRESS",
-            "CREATE_FAILED",
-            "CREATE_COMPLETE",
-            "ROLLBACK_IN_PROGRESS",
-            "ROLLBACK_FAILED",
-            "ROLLBACK_COMPLETE",
-            "UPDATE_IN_PROGRESS",
-            "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
-            "UPDATE_COMPLETE",
-            "UPDATE_FAILED",
-            "UPDATE_ROLLBACK_IN_PROGRESS",
-            "UPDATE_ROLLBACK_FAILED",
-            "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
-            "UPDATE_ROLLBACK_COMPLETE",
-            "REVIEW_IN_PROGRESS",
-            "IMPORT_IN_PROGRESS",
-            "IMPORT_COMPLETE",
-            "IMPORT_ROLLBACK_IN_PROGRESS",
-            "IMPORT_ROLLBACK_FAILED",
-            "IMPORT_ROLLBACK_COMPLETE",
-          ],
-        }),
-      );
-      const stacks: StackSummary[] = cfnOutput.StackSummaries ?? [];
+      let nextToken: string | undefined;
+      const stacks: StackSummary[] = [];
+      do {
+        const cfnOutput = await cfnClient.send(
+          new ListStacksCommand({
+            NextToken: nextToken,
+            StackStatusFilter: [
+              "CREATE_IN_PROGRESS",
+              "CREATE_FAILED",
+              "CREATE_COMPLETE",
+              "ROLLBACK_IN_PROGRESS",
+              "ROLLBACK_FAILED",
+              "ROLLBACK_COMPLETE",
+              "UPDATE_IN_PROGRESS",
+              "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
+              "UPDATE_COMPLETE",
+              "UPDATE_FAILED",
+              "UPDATE_ROLLBACK_IN_PROGRESS",
+              "UPDATE_ROLLBACK_FAILED",
+              "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
+              "UPDATE_ROLLBACK_COMPLETE",
+              "REVIEW_IN_PROGRESS",
+              "IMPORT_IN_PROGRESS",
+              "IMPORT_COMPLETE",
+              "IMPORT_ROLLBACK_IN_PROGRESS",
+              "IMPORT_ROLLBACK_FAILED",
+              "IMPORT_ROLLBACK_COMPLETE",
+            ],
+          }),
+        );
+        if (cfnOutput.StackSummaries) {
+          stacks.push(...cfnOutput.StackSummaries);
+        }
+        nextToken = cfnOutput.NextToken;
+      } while (nextToken);
 
       for (const stack of stacks) {
         const stackName = stack.StackName || "";
@@ -312,8 +341,17 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
     // 2c. Clean Test Secrets Manager Secrets
     try {
-      const secOutput = await secretsClient.send(new ListSecretsCommand({}));
-      const secrets: SecretListEntry[] = secOutput.SecretList ?? [];
+      let nextToken: string | undefined;
+      const secrets: SecretListEntry[] = [];
+      do {
+        const secOutput = await secretsClient.send(
+          new ListSecretsCommand({ NextToken: nextToken }),
+        );
+        if (secOutput.SecretList) {
+          secrets.push(...secOutput.SecretList);
+        }
+        nextToken = secOutput.NextToken;
+      } while (nextToken);
 
       for (const sec of secrets) {
         const secName = sec.Name || "";
@@ -363,8 +401,17 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 
     // 2d. Clean Test SSM Parameters
     try {
-      const ssmOutput = await ssmClient.send(new DescribeParametersCommand({}));
-      const params: ParameterMetadata[] = ssmOutput.Parameters ?? [];
+      let nextToken: string | undefined;
+      const params: ParameterMetadata[] = [];
+      do {
+        const ssmOutput = await ssmClient.send(
+          new DescribeParametersCommand({ NextToken: nextToken }),
+        );
+        if (ssmOutput.Parameters) {
+          params.push(...ssmOutput.Parameters);
+        }
+        nextToken = ssmOutput.NextToken;
+      } while (nextToken);
 
       for (const param of params) {
         const paramName = param.Name || "";
@@ -457,31 +504,52 @@ export async function runAwsCleanup(options: CleanupOptions = {}): Promise<Clean
 async function emptyAndDeleteS3Bucket(s3Client: S3Client, bucketName: string): Promise<void> {
   // Delete all versions / delete markers
   try {
-    const versions = await s3Client.send(new ListObjectVersionsCommand({ Bucket: bucketName }));
-    const objectsToDelete = [
-      ...(versions.Versions ?? []).map((v) => ({ Key: v.Key!, VersionId: v.VersionId })),
-      ...(versions.DeleteMarkers ?? []).map((d) => ({ Key: d.Key!, VersionId: d.VersionId })),
-    ];
-    if (objectsToDelete.length > 0) {
-      await s3Client.send(
-        new DeleteObjectsCommand({
+    let keyMarker: string | undefined;
+    let versionIdMarker: string | undefined;
+    do {
+      const versions = await s3Client.send(
+        new ListObjectVersionsCommand({
           Bucket: bucketName,
-          Delete: { Objects: objectsToDelete },
+          KeyMarker: keyMarker,
+          VersionIdMarker: versionIdMarker,
         }),
       );
-    }
+      const objectsToDelete = [
+        ...(versions.Versions ?? []).map((v) => ({ Key: v.Key!, VersionId: v.VersionId })),
+        ...(versions.DeleteMarkers ?? []).map((d) => ({ Key: d.Key!, VersionId: d.VersionId })),
+      ];
+      if (objectsToDelete.length > 0) {
+        await s3Client.send(
+          new DeleteObjectsCommand({
+            Bucket: bucketName,
+            Delete: { Objects: objectsToDelete },
+          }),
+        );
+      }
+      keyMarker = versions.IsTruncated ? versions.NextKeyMarker : undefined;
+      versionIdMarker = versions.IsTruncated ? versions.NextVersionIdMarker : undefined;
+    } while (keyMarker || versionIdMarker);
   } catch (_e) {
     // Try simple objects list
-    const list = await s3Client.send(new ListObjectsV2Command({ Bucket: bucketName }));
-    const keys = (list.Contents ?? []).map((c) => ({ Key: c.Key! }));
-    if (keys.length > 0) {
-      await s3Client.send(
-        new DeleteObjectsCommand({
+    let continuationToken: string | undefined;
+    do {
+      const list = await s3Client.send(
+        new ListObjectsV2Command({
           Bucket: bucketName,
-          Delete: { Objects: keys },
+          ContinuationToken: continuationToken,
         }),
       );
-    }
+      const keys = (list.Contents ?? []).map((c) => ({ Key: c.Key! }));
+      if (keys.length > 0) {
+        await s3Client.send(
+          new DeleteObjectsCommand({
+            Bucket: bucketName,
+            Delete: { Objects: keys },
+          }),
+        );
+      }
+      continuationToken = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (continuationToken);
   }
 
   await s3Client.send(new DeleteBucketCommand({ Bucket: bucketName }));

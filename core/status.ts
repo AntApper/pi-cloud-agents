@@ -160,23 +160,29 @@ export async function resolveRunId(
 
   if (s3Client && bucket) {
     try {
-      const listRes = await s3Client.send(
-        new ListObjectsV2Command({
-          Bucket: bucket,
-          Prefix: "runs/",
-          MaxKeys: 100,
-        }),
-      );
+      let continuationToken: string | undefined;
+      do {
+        const listRes = await s3Client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: "runs/",
+            MaxKeys: 100,
+            ContinuationToken: continuationToken,
+          }),
+        );
 
-      for (const obj of listRes.Contents || []) {
-        const match = obj.Key?.match(/^runs\/(run-[a-z0-9-]+)\/manifest\.json$/);
-        if (match?.[1]) {
-          const fullId = match[1];
-          if (fullId === trimmed || fullId === `run-${trimmed}` || fullId.includes(trimmed)) {
-            return fullId;
+        for (const obj of listRes.Contents || []) {
+          const match = obj.Key?.match(/^runs\/(run-[a-z0-9-]+)\/manifest\.json$/);
+          if (match?.[1]) {
+            const fullId = match[1];
+            if (fullId === trimmed || fullId === `run-${trimmed}` || fullId.includes(trimmed)) {
+              return fullId;
+            }
           }
         }
-      }
+
+        continuationToken = listRes.IsTruncated ? listRes.NextContinuationToken : undefined;
+      } while (continuationToken);
     } catch {
       // Fall back to formatted ID
     }

@@ -44,6 +44,14 @@ Parameters:
     Type: String
     Description: "Name of the CloudWatch log group for MicroVM image build and guest execution"
 
+  KmsKeyArn:
+    Type: String
+    Default: ""
+    Description: "Optional customer-managed KMS key ARN for Secrets Manager and S3 encryption"
+
+Conditions:
+  HasKmsKey: !Not [!Equals [!Ref KmsKeyArn, ""]]
+
 Resources:
   MicrovmImage:
     Type: "AWS::Lambda::MicrovmImage"
@@ -153,12 +161,26 @@ Resources:
                       - "runs/*"
                       - "index/*"
                       - "controller/*"
+              - Sid: JanitorSecretDiscovery
+                Effect: Allow
+                Action:
+                  - "secretsmanager:ListSecrets"
+                Resource: "*"
               - Sid: JanitorSecretCleanup
                 Effect: Allow
                 Action:
                   - "secretsmanager:DeleteSecret"
                 Resource:
                   - !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:pi-cloud-agents/${AWS::StackName}/runs/*"
+              - !If
+                - HasKmsKey
+                - Sid: KmsDecryptController
+                  Effect: Allow
+                  Action:
+                    - "kms:Decrypt"
+                    - "kms:DescribeKey"
+                  Resource: !Ref KmsKeyArn
+                - !Ref "AWS::NoValue"
       Tags:
         - Key: "pi-cloud-agents:managed"
           Value: "true"

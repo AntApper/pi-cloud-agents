@@ -17,7 +17,8 @@
           "enum": [
             "prompt",
             "steer",
-            "followUp"
+            "followUp",
+            "follow_up"
           ],
           "default": "prompt"
         },

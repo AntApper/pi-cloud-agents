@@ -579,6 +579,7 @@ export class RunnerApiServer {
     const promptReq = validationResult.data;
     const message = promptReq.prompt || promptReq.message || "";
     const mode = promptReq.mode || (promptReq.steer ? "steer" : "prompt");
+    const isFollowUp = mode === "followUp" || mode === "follow_up";
 
     // Check conflict if agent is currently streaming and request is a standard prompt without steer / followUp
     if (this.isAgentStreaming && mode === "prompt" && !promptReq.steer) {
@@ -595,7 +596,7 @@ export class RunnerApiServer {
     const pi = this.options.piProcess;
     if (pi) {
       try {
-        const rpcMode = mode === "followUp" ? "follow_up" : mode === "steer" ? "steer" : "prompt";
+        const rpcMode = isFollowUp ? "follow_up" : mode === "steer" ? "steer" : "prompt";
         await pi.prompt(message, rpcMode);
       } catch (err) {
         this.sendJson(res, 500, {

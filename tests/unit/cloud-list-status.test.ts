@@ -22,7 +22,7 @@ import {
   formatTokenCount,
   listCloudRuns,
 } from "../../core/list.js";
-import { fetchRunStatusDetails, formatRunStatusCard } from "../../core/status.js";
+import { fetchRunStatusDetails, formatRunStatusCard, resolveRunId } from "../../core/status.js";
 import { formatRunsTable, handleCloudListCommand } from "../../extension/commands/list.js";
 import { handleCloudStatusCommand } from "../../extension/commands/status.js";
 import { visibleWidth } from "../../extension/ui/kit.js";
@@ -318,6 +318,25 @@ describe("T4.6 /cloud list & /cloud status", () => {
   });
 
   describe("Command handlers", () => {
+    it("paginates ListObjectsV2Command when resolving runId if truncated", async () => {
+      s3Mock
+        .on(ListObjectsV2Command, { ContinuationToken: undefined })
+        .resolves({
+          Contents: [{ Key: "runs/run-20260906-other/manifest.json" }],
+          IsTruncated: true,
+          NextContinuationToken: "next-token-123",
+        })
+        .on(ListObjectsV2Command, { ContinuationToken: "next-token-123" })
+        .resolves({
+          Contents: [{ Key: "runs/run-20260906-targetrun/manifest.json" }],
+          IsTruncated: false,
+        });
+
+      const s3Client = new S3Client({ region: "us-east-1" });
+      const resolved = await resolveRunId(s3Client, "test-bucket", "targetrun");
+      expect(resolved).toBe("run-20260906-targetrun");
+    });
+
     it("handleCloudListCommand returns formatted output and supports --json", async () => {
       s3Mock.on(ListObjectsV2Command, { Bucket: "test-bucket", Prefix: "runs/" }).resolves({
         Contents: [{ Key: "runs/run-20260906-7f3a2c/manifest.json" }],

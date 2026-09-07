@@ -74,6 +74,7 @@ export interface PrepareWorkspaceResult {
   initialCommit?: string;
   installLog?: string;
   startedProcesses: StartedProcessInfo[];
+  effectiveEnv?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -389,6 +390,7 @@ export async function prepareWorkspace(
     initialCommit,
     installLog,
     startedProcesses,
+    effectiveEnv,
   };
 }
 

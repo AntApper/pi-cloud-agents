@@ -188,13 +188,20 @@ describe("T2.5a Runner HTTP API (REST + SSE)", () => {
     expect(steerRes.statusCode).toBe(200);
     expect(steerRes.json()).toEqual({ status: "accepted", mode: "steer" });
 
-    // 5. FollowUp mode while busy returns 200 accepted
+    // 5. FollowUp mode while busy returns 200 accepted (supports both followUp and follow_up)
     const followUpRes = await request("POST", "/v1/prompt", {
       body: JSON.stringify({ message: "Also run tests", mode: "followUp" }),
       headers: { "Content-Type": "application/json" },
     });
     expect(followUpRes.statusCode).toBe(200);
     expect(followUpRes.json()).toEqual({ status: "accepted", mode: "followUp" });
+
+    const followUpSnakeRes = await request("POST", "/v1/prompt", {
+      body: JSON.stringify({ message: "Also run tests snake_case", mode: "follow_up" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(followUpSnakeRes.statusCode).toBe(200);
+    expect(followUpSnakeRes.json()).toEqual({ status: "accepted", mode: "follow_up" });
   });
 
   it("POST /v1/prompt validates request schema and rejects bad input", async () => {

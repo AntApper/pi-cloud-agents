@@ -404,7 +404,13 @@ describe("CloudFormation Image Stack & Controller (T3.1b)", () => {
     expect(actions).toContain("lambda:CreateMicrovmAuthToken");
     expect(actions).toContain("s3:GetObject");
     expect(actions).toContain("s3:PutObject");
+    expect(actions).toContain("secretsmanager:ListSecrets");
     expect(actions).toContain("secretsmanager:DeleteSecret");
+  });
+
+  it("declares optional KmsKeyArn parameter and HasKmsKey condition in infra/image.yaml", () => {
+    expect(params.KmsKeyArn).toBeDefined();
+    expect(params.KmsKeyArn?.Type).toBe("String");
   });
 
   it("configures EventBridge 1-minute schedule rule and Lambda permission", () => {

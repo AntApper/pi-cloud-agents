@@ -104,8 +104,8 @@ describe("T4.13 Cloud Sync (pi config bundle & credentials)", () => {
     const smCalls = smMock.commandCalls(CreateSecretCommand);
     expect(smCalls).toHaveLength(2);
     const secretNames = smCalls.map((c) => c.args[0].input.Name);
-    expect(secretNames).toContain("pi-cloud-agents/pi-cloud-agents/pi-auth/anthropic");
-    expect(secretNames).toContain("pi-cloud-agents/pi-cloud-agents/pi-auth/openai");
+    expect(secretNames).toContain("pi-cloud-agents/pi-cloud-agents-core/pi-auth/anthropic");
+    expect(secretNames).toContain("pi-cloud-agents/pi-cloud-agents-core/pi-auth/openai");
 
     // Verify local config updated with syncedAt timestamp
     const savedConfig = loadLocalConfig();
@@ -149,7 +149,7 @@ describe("T4.13 Cloud Sync (pi config bundle & credentials)", () => {
     const smCalls = smMock.commandCalls(CreateSecretCommand);
     expect(smCalls).toHaveLength(1);
     expect(smCalls[0]?.args[0].input.Name).toBe(
-      "pi-cloud-agents/pi-cloud-agents/pi-auth/anthropic",
+      "pi-cloud-agents/pi-cloud-agents-core/pi-auth/anthropic",
     );
   });
 
@@ -185,5 +185,50 @@ describe("T4.13 Cloud Sync (pi config bundle & credentials)", () => {
     expect(res.output).toContain("test-pi-cloud-bucket-12345");
     expect(res.output).toContain("anthropic");
     expect(notified).toHaveLength(1);
+  });
+
+  it("resolves stackName from localConfig when options.stackName is omitted", async () => {
+    cfnMock.on(DescribeStacksCommand).resolves({
+      Stacks: [
+        {
+          StackName: "my-custom-stack",
+          CreationTime: new Date(),
+          StackStatus: "CREATE_COMPLETE",
+          Outputs: [
+            {
+              OutputKey: "StorageBucketName",
+              OutputValue: "custom-bucket-xyz",
+            },
+          ],
+        },
+      ],
+    });
+
+    const config: LocalConfig = {
+      ...DEFAULT_LOCAL_CONFIG,
+      stackName: "my-custom-stack",
+      providers: {
+        synced: ["anthropic"],
+        oauthOptIn: [],
+        bedrockRole: false,
+      },
+    };
+    saveLocalConfig(config);
+
+    const result = await syncPiConfig({
+      authEntries: {
+        anthropic: { type: "api_key", key: "sk-custom" },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.bucketName).toBe("custom-bucket-xyz");
+
+    const smCalls = smMock.commandCalls(CreateSecretCommand);
+    const customSecret = smCalls.find((c) => c.args[0].input.Name?.includes("my-custom-stack"));
+    expect(customSecret).toBeDefined();
+    expect(customSecret?.args[0].input.Name).toBe(
+      "pi-cloud-agents/my-custom-stack/pi-auth/anthropic",
+    );
   });
 });

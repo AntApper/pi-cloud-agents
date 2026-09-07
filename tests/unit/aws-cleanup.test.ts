@@ -224,4 +224,49 @@ describe("AWS Kill-switch Cleanup", () => {
     expect(formatted).not.toContain("123456789012");
     expect(findForbiddenGlyphs(formatted)).toHaveLength(0);
   });
+
+  it("paginates through all pages for AWS list commands", async () => {
+    let vmPage = 0;
+    const fakeMicrovms = {
+      send: async (cmd: SdkCommandLike) => {
+        const cmdName = cmd.constructor?.name;
+        if (cmdName === "ListMicrovmsCommand") {
+          vmPage++;
+          if (vmPage === 1) {
+            return {
+              items: [
+                {
+                  microvmId: "pi-cloud-agents-test-mvm-page1",
+                  state: "RUNNING",
+                  imageArn: "arn:aws:lambda:us-east-1:123456789012:microvm-image:pi-cloud-test",
+                },
+              ],
+              nextToken: "page2-token",
+            };
+          }
+          return {
+            items: [
+              {
+                microvmId: "pi-cloud-agents-test-mvm-page2",
+                state: "RUNNING",
+                imageArn: "arn:aws:lambda:us-east-1:123456789012:microvm-image:pi-cloud-test",
+              },
+            ],
+          };
+        }
+        if (cmdName === "TerminateMicrovmCommand") return {};
+        return {};
+      },
+    } as unknown as LambdaMicrovmsClient;
+
+    const report = await runAwsCleanup({
+      region: "us-east-1",
+      dryRun: false,
+      microvmsClient: fakeMicrovms,
+    });
+
+    expect(vmPage).toBe(2);
+    expect(report.summary.microvmsFound).toBe(2);
+    expect(report.summary.microvmsTerminated).toBe(2);
+  });
 });

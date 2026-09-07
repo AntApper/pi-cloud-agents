@@ -316,7 +316,7 @@ export const PromptRequestSchema = z
   .object({
     prompt: z.string().min(1).optional(),
     message: z.string().min(1).optional(),
-    mode: z.enum(["prompt", "steer", "followUp"]).default("prompt"),
+    mode: z.enum(["prompt", "steer", "followUp", "follow_up"]).default("prompt"),
     steer: z.boolean().optional(),
   })
   .refine(

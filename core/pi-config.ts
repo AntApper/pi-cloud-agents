@@ -168,6 +168,14 @@ export function extractTar(tarBuffer: Buffer, targetDir: string): string[] {
 
     if (filename) {
       const destPath = path.join(targetDir, filename);
+      const resolvedTarget = path.resolve(targetDir);
+      const resolvedDest = path.resolve(destPath);
+
+      if (resolvedDest !== resolvedTarget && !resolvedDest.startsWith(resolvedTarget + path.sep)) {
+        throw new Error(
+          `Security violation: Directory traversal detected in TAR entry '${filename}' resolving to '${resolvedDest}' outside target '${resolvedTarget}'`,
+        );
+      }
 
       if (typeFlag === "5" || filename.endsWith("/")) {
         fs.mkdirSync(destPath, { recursive: true });

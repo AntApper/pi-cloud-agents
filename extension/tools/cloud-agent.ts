@@ -382,6 +382,7 @@ export async function executeCloudAgentTool(
 
       // If runner endpoint and microvmId are active, dispatch to runner via RunClient
       let dispatchedLive = false;
+      let dispatchError: string | undefined;
       if (
         status.manifest?.endpoint &&
         status.manifest?.microvmId &&
@@ -415,20 +416,39 @@ export async function executeCloudAgentTool(
             steer: !params.followUp,
           });
           dispatchedLive = true;
-        } catch {
-          // Fall back gracefully if live dispatch fails
+        } catch (err) {
+          dispatchError = (err as Error)?.message || String(err);
         }
+      } else {
+        dispatchError = `Run ${status.shortRunId} is in state '${status.status}' and not reachable for live steering.`;
       }
 
-      const text = `Steer prompt dispatched to cloud agent ${status.shortRunId} (${params.followUp ? "follow-up mode" : "steer mode"}${dispatchedLive ? ", live connected" : ""}).`;
+      if (!dispatchedLive) {
+        const errorText = `Failed to dispatch steer prompt to cloud agent ${status.shortRunId}: ${dispatchError || "Agent is not currently running or reachable"}.`;
+        return {
+          content: [{ type: "text", text: errorText }],
+          details: {
+            action: "steer",
+            runId: status.runId,
+            status: "failed",
+            error: "DISPATCH_FAILED",
+            errorMessage: dispatchError,
+            followUp: !!params.followUp,
+            dispatchedLive: false,
+          },
+        };
+      }
+
+      const text = `Steer prompt dispatched to cloud agent ${status.shortRunId} (${params.followUp ? "follow-up mode" : "steer mode"}, live connected).`;
 
       return {
         content: [{ type: "text", text }],
         details: {
           action: "steer",
           runId: status.runId,
+          status: "dispatched",
           followUp: !!params.followUp,
-          dispatchedLive,
+          dispatchedLive: true,
         },
       };
     }
@@ -533,6 +553,13 @@ export function registerCloudAgentTool(pi: ExtensionAPI): void {
       if (action === "result" && details.runId) {
         return new Text(
           `${GLYPHS.pass} Result for ${(details.runId as string).slice(0, 8)}: ${details.status}`,
+        );
+      }
+      if (action === "steer" && details.runId) {
+        const isDispatched = details.dispatchedLive === true;
+        const glyph = isDispatched ? GLYPHS.pass : GLYPHS.fail;
+        return new Text(
+          `${glyph} Steer ${(details.runId as string).slice(0, 8)}: ${isDispatched ? "dispatched" : "failed"}`,
         );
       }
       if (action === "stop" && details.runId) {
