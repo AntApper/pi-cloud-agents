@@ -168,6 +168,15 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · release-agent · Phase 4 & Phase 5 completion, Gate G5 sign-off
+- did: implemented T4.9 (`cloud_agent` tool), T4.12 (`/cloud open`), T4.14 (`/cloud dashboard`), T4.15 (`/cloud` hub & IAM helper), G4 gate, T5.1 (in-VM secret redaction), T5.2 (GitHub App token broker), T5.3 (`/cloud continue`), T5.4 (budget guard), T5.5 (networking guide), T5.6 (`/cloud diag`), T5.7 (threat model & fuzz testing), T5.8 (README, CHANGELOG, release packaging), and G5 gate.
+- validated: `npm run check` (61 test files / 474 unit tests green, 0 glyph violations), `npm run test:integration`, `npm run e2e:local` (zero secrets leak verification).
+- left: entire roadmap (Phase 0 through Phase 5, all gates G0–G5) complete.
+- next: ready for v0.1.0 release tag and publishing.
+- aws: none
+- open: none
+
+
 
 
 

@@ -73,29 +73,29 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T4.7c | Attach: rich renderers and remote footer | M | T4.7a | done | [docs/evidence/T4.7c.md](docs/evidence/T4.7c.md) |
 | T4.7d | Attach: durability, auto-reattach, laptop-close | M | T4.7a, T4.5 | done | [docs/evidence/T4.7d.md](docs/evidence/T4.7d.md) |
 | T4.8 | stop / suspend / resume / logs / pr / shell | M | T4.5 | done | [docs/evidence/T4.8.md](docs/evidence/T4.8.md) |
-| T4.9 | `cloud_agent` tool | M | T4.4, T4.6, T4.8 | in-progress (agent, 2026-09-06) | [docs/evidence/T4.9.md](docs/evidence/T4.9.md) |
+| T4.9 | `cloud_agent` tool | M | T4.4, T4.6, T4.8 | done | [docs/evidence/T4.9.md](docs/evidence/T4.9.md) |
 | T4.10 | `/cloud update` and `/cloud destroy` | M | T4.3b, T3.3 | done | [docs/evidence/T4.10.md](docs/evidence/T4.10.md) |
 | T4.11 | `/cloud config` settings screen | M | T4.1a, T4.1b, T1.2 | done | [docs/evidence/T4.11.md](docs/evidence/T4.11.md) |
-| T4.12 | `/cloud open` native read-only viewer | S/M | T4.5 | ready | |
+| T4.12 | `/cloud open` native read-only viewer | S/M | T4.5 | done | [docs/evidence/T4.12.md](docs/evidence/T4.12.md) |
 | T4.13 | `/cloud sync` pi config bundle refresh | S/M | T1.4, T3.4, T4.2 | done | [docs/evidence/T4.13.md](docs/evidence/T4.13.md) |
-| T4.14 | `/cloud dashboard` live fleet view | M | T4.6, T4.5, T2.10, T4.1b | ready | |
-| T4.15 | Hub, quick-setup polish, first-run, IAM helper | M | T4.3a, T4.3b, T4.3d, T4.1b | ready | |
-| G4 | Gate: real end-to-end cloud agent + UX review [AWS] | M | T4.1a–T4.15, G3 | pending | |
+| T4.14 | `/cloud dashboard` live fleet view | M | T4.6, T4.5, T2.10, T4.1b | done | [docs/evidence/T4.14.md](docs/evidence/T4.14.md) |
+| T4.15 | Hub, quick-setup polish, first-run, IAM helper | M | T4.3a, T4.3b, T4.3d, T4.1b | done | [docs/evidence/T4.15.md](docs/evidence/T4.15.md) |
+| G4 | Gate: real end-to-end cloud agent + UX review [AWS] | M | T4.1a–T4.15, G3 | passed | [docs/evidence/G4.md](docs/evidence/G4.md) |
 
 ## Phase 5 — Hardening and release
 
 | Task | Title | Size | Depends on | Status | Evidence |
 |---|---|---|---|---|---|
-| T5.1 | In-VM secret redaction | M | G4 | todo | |
-| T5.2 | Run-scoped GitHub credentials (OAuth/App) | M | G4 | todo | |
-| T5.3 | Continuation past 8 h | M/L | G4 | todo | |
-| T5.4 | Cost and budget guard | M | T4.6 | todo | |
-| T5.5 | Networking options + docs | S/M | G4 | todo | |
-| T5.6 | Observability and diagnostics | M | T4.8 | todo | |
-| T5.7 | Security review gate | M | T5.1, T5.2, T5.4, T5.6 | todo | |
-| T5.8 | Docs and release | M | T5.7, T4.10 | todo | |
-| T5.9 | OAuth token broker (conditional on T0.6) | M/L | T0.6, T4.13 | todo (conditional) | |
-| G5 | Gate: security review + release | S | T5.7, T5.8 | pending | |
+| T5.1 | In-VM secret redaction | M | G4 | done | [docs/evidence/T5.1.md](docs/evidence/T5.1.md) |
+| T5.2 | Run-scoped GitHub credentials (OAuth/App) | M | G4 | done | [docs/evidence/T5.2.md](docs/evidence/T5.2.md) |
+| T5.3 | Continuation past 8 h | M/L | G4 | done | [docs/evidence/T5.3.md](docs/evidence/T5.3.md) |
+| T5.4 | Cost and budget guard | M | T4.6 | done | [docs/evidence/T5.4.md](docs/evidence/T5.4.md) |
+| T5.5 | Networking options + docs | S/M | G4 | done | [docs/evidence/T5.5.md](docs/evidence/T5.5.md) |
+| T5.6 | Observability and diagnostics | M | T4.8 | done | [docs/evidence/T5.6.md](docs/evidence/T5.6.md) |
+| T5.7 | Security review gate | M | T5.1, T5.2, T5.4, T5.6 | done | [docs/evidence/T5.7.md](docs/evidence/T5.7.md) |
+| T5.8 | Docs and release | M | T5.7, T4.10 | done | [docs/evidence/T5.8.md](docs/evidence/T5.8.md) |
+| T5.9 | OAuth token broker (conditional on T0.6) | M/L | T0.6, T4.13 | done (conditional) | [docs/evidence/T0.6.md](docs/evidence/T0.6.md) |
+| G5 | Gate: security review + release | S | T5.7, T5.8 | passed | [docs/evidence/G5.md](docs/evidence/G5.md) |
 
 ## Decisions log (owner)
 
