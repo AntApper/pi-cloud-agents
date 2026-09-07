@@ -33,7 +33,7 @@ describe("Extension registration", () => {
     expect(registeredCommands.has("cloud")).toBe(true);
   });
 
-  it("notifies help catalog when handler is executed without args in UI mode", async () => {
+  it("notifies hub overview when handler is executed without args in UI mode", async () => {
     let handlerFn: ((args: string, ctx: unknown) => Promise<void>) | undefined;
     const mockPi = {
       registerCommand: vi.fn(
@@ -60,7 +60,7 @@ describe("Extension registration", () => {
     };
 
     await handlerFn!("", ctx);
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining("Command Catalog"), "info");
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining("pi cloud agents"), "info");
     expect(setStatus).toHaveBeenCalledWith("cloud", "cloud 0 running · 0 idle");
   });
 });

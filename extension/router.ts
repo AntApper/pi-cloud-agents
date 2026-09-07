@@ -4,6 +4,7 @@
 
 import { handleCloudAttachCommand, handleCloudDetachCommand } from "./commands/attach.js";
 import { handleCloudConfigCommand } from "./commands/config.js";
+import { handleCloudContinueCommand } from "./commands/continue.js";
 import {
   handleCloudLogsCommand,
   handleCloudPrCommand,
@@ -12,9 +13,14 @@ import {
   handleCloudStopCommand,
   handleCloudSuspendCommand,
 } from "./commands/controls.js";
+import { handleCloudDashboardCommand } from "./commands/dashboard.js";
+import { handleCloudDiagCommand } from "./commands/diag.js";
+import { handleCloudHubCommand } from "./commands/hub.js";
+import { handleCloudIamPolicyCommand } from "./commands/iam-helper.js";
 import { handleCloudDestroyCommand, handleCloudUpdateCommand } from "./commands/lifecycle-ops.js";
 import { handleCloudListCommand } from "./commands/list.js";
 import { handleCloudNewCommand } from "./commands/new.js";
+import { handleCloudOpenCommand } from "./commands/open.js";
 import { handleCloudSetupCommand } from "./commands/setup.js";
 import { handleCloudStatusCommand } from "./commands/status.js";
 import { handleCloudSyncCommand } from "./commands/sync.js";
@@ -136,6 +142,29 @@ export const CLOUD_SUBCOMMANDS: SubcommandDefinition[] = [
     description: "Tear down all cloud agent infrastructure",
     usage: "/cloud destroy",
   },
+  {
+    name: "open",
+    description: "Open remote session transcript in read-only viewer mode",
+    usage: "/cloud open <runId>",
+    takesRunId: true,
+  },
+  {
+    name: "continue",
+    description: "Continue an existing run across the 8-hour MicroVM limit",
+    usage: "/cloud continue <runId>",
+    takesRunId: true,
+  },
+  {
+    name: "diag",
+    description: "Export sanitized diagnostics bundle for troubleshooting",
+    usage: "/cloud diag <runId>",
+    takesRunId: true,
+  },
+  {
+    name: "iam-policy",
+    description: "Display operator IAM policy JSON and CloudFormation template",
+    usage: "/cloud iam-policy [--yaml]",
+  },
   { name: "help", description: "Show cloud agent command catalog", usage: "/cloud help [sub]" },
 ];
 
@@ -238,7 +267,11 @@ export async function routeCloudCommand(
   const sub = (parts[0] || "").toLowerCase();
   const subArgs = parts.slice(1);
 
-  if (!sub || sub === "help") {
+  if (!sub || sub === "hub") {
+    return handleCloudHubCommand(subArgs, ctx);
+  }
+
+  if (sub === "help") {
     const helpText = formatHelpCatalog();
     if (ctx?.hasUI && ctx.ui?.notify) {
       ctx.ui.notify(helpText, "info");
@@ -337,6 +370,26 @@ export async function routeCloudCommand(
 
   if (sub === "destroy") {
     return handleCloudDestroyCommand(subArgs, ctx);
+  }
+
+  if (sub === "open") {
+    return handleCloudOpenCommand(subArgs, ctx);
+  }
+
+  if (sub === "dashboard") {
+    return handleCloudDashboardCommand(subArgs, ctx);
+  }
+
+  if (sub === "continue") {
+    return handleCloudContinueCommand(subArgs, ctx);
+  }
+
+  if (sub === "diag") {
+    return handleCloudDiagCommand(subArgs, ctx);
+  }
+
+  if (sub === "iam-policy") {
+    return handleCloudIamPolicyCommand(subArgs, ctx);
   }
 
   const knownSub = CLOUD_SUBCOMMANDS.find((cmd) => cmd.name === sub);

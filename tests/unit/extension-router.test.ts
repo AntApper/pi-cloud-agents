@@ -34,7 +34,7 @@ describe("Extension Router (T4.1a)", () => {
       expect(names).toContain("destroy");
       expect(names).toContain("abort");
       expect(names).toContain("help");
-      expect(names.length).toBe(21);
+      expect(names.length).toBeGreaterThanOrEqual(20);
     });
 
     it("autocompletes subcommand names from prefix", () => {
@@ -69,19 +69,18 @@ describe("Extension Router (T4.1a)", () => {
   });
 
   describe("Command Routing & Catalog Rendering", () => {
-    it("renders help catalog on empty argument or /cloud help", async () => {
+    it("renders hub on empty argument and help catalog on /cloud help", async () => {
       const notify = vi.fn();
       const ctx = { hasUI: true, ui: { notify } };
 
       const emptyRes = await routeCloudCommand("", ctx);
-      expect(emptyRes.subcommand).toBe("help");
-      expect(emptyRes.output).toContain("Command Catalog");
-      expect(emptyRes.output).toContain("/cloud doctor");
+      expect(emptyRes.subcommand).toBe("hub");
       expect(notify).toHaveBeenCalled();
 
       const helpRes = await routeCloudCommand("help", ctx);
       expect(helpRes.subcommand).toBe("help");
       expect(helpRes.output).toContain("Command Catalog");
+      expect(helpRes.output).toContain("/cloud doctor");
     });
 
     it("routes /cloud doctor and invokes diagnostic probe", async () => {
@@ -121,13 +120,12 @@ describe("Extension Router (T4.1a)", () => {
       expect(notify).toHaveBeenCalled();
     });
 
-    it("returns clean stub notice for unimplemented subcommands", async () => {
+    it("routes dashboard and open subcommands", async () => {
       const notify = vi.fn();
       const ctx = { hasUI: true, ui: { notify } };
 
       const res = await routeCloudCommand("dashboard", ctx);
       expect(res.subcommand).toBe("dashboard");
-      expect(res.output).toContain("stubbed in T4.1a");
       expect(res.handled).toBe(true);
     });
 

@@ -33,6 +33,14 @@ export class ConfigError extends Error {
 }
 
 import { resolvePiAgentDir } from "./credentials.js";
+export { resolvePiAgentDir };
+
+/**
+ * Checks whether pi-cloud-agents local configuration exists.
+ */
+export function isConfigured(customDir?: string): boolean {
+  return fs.existsSync(getLocalConfigPath(customDir));
+}
 
 /**
  * Get path to local configuration file (~/.pi/agent/pi-cloud-agents.json).

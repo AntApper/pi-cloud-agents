@@ -129,33 +129,57 @@ export interface RunStatusDetails {
  * Resolves full runId from short or full runId.
  */
 export async function resolveRunId(
-  s3Client: S3Client,
-  bucket: string,
-  queryId: string,
+  s3ClientOrQueryId: S3Client | string,
+  bucketOrOptions?: string | FetchRunStatusOptions,
+  queryIdParam?: string,
 ): Promise<string> {
+  let s3Client: S3Client | undefined;
+  let bucket = "";
+  let queryId = "";
+
+  if (typeof s3ClientOrQueryId === "string") {
+    queryId = s3ClientOrQueryId;
+    const opts = (
+      typeof bucketOrOptions === "object" ? bucketOrOptions : {}
+    ) as FetchRunStatusOptions;
+    const config = opts.config || loadLocalConfig({ customDir: opts.piAgentDir });
+    const stackName = config.stackName || DEFAULT_STACK_NAME;
+    const region = config.aws.region || "us-east-1";
+    const profile = config.aws.profile;
+    const factory = opts.clientFactory || new AwsClientFactory({ region, profile });
+    s3Client = opts.s3Client || factory.getS3Client({ region, profile });
+    bucket = opts.bucket || (await resolveBucketName(factory, stackName, region, profile));
+  } else {
+    s3Client = s3ClientOrQueryId;
+    bucket = typeof bucketOrOptions === "string" ? bucketOrOptions : "";
+    queryId = queryIdParam || "";
+  }
+
   const trimmed = queryId.trim();
   if (!trimmed) throw new Error("Run ID is required");
 
-  try {
-    const listRes = await s3Client.send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: "runs/",
-        MaxKeys: 100,
-      }),
-    );
+  if (s3Client && bucket) {
+    try {
+      const listRes = await s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: "runs/",
+          MaxKeys: 100,
+        }),
+      );
 
-    for (const obj of listRes.Contents || []) {
-      const match = obj.Key?.match(/^runs\/(run-[a-z0-9-]+)\/manifest\.json$/);
-      if (match?.[1]) {
-        const fullId = match[1];
-        if (fullId === trimmed || fullId === `run-${trimmed}` || fullId.includes(trimmed)) {
-          return fullId;
+      for (const obj of listRes.Contents || []) {
+        const match = obj.Key?.match(/^runs\/(run-[a-z0-9-]+)\/manifest\.json$/);
+        if (match?.[1]) {
+          const fullId = match[1];
+          if (fullId === trimmed || fullId === `run-${trimmed}` || fullId.includes(trimmed)) {
+            return fullId;
+          }
         }
       }
+    } catch {
+      // Fall back to formatted ID
     }
-  } catch {
-    // Fall back to formatted ID
   }
 
   return trimmed.startsWith("run-") ? trimmed : `run-${trimmed}`;

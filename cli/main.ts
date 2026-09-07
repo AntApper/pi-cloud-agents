@@ -548,6 +548,36 @@ export async function runCli(argv = process.argv): Promise<number> {
         return 0;
       }
 
+      case "iam-policy": {
+        const yamlMode = Boolean(parsed.flags.yaml || parsed.flags.cfn);
+        const { generateOperatorPolicyCfnYaml, generateOperatorPolicyJson } = await import(
+          "../core/iam-helper.js"
+        );
+        const output = yamlMode ? generateOperatorPolicyCfnYaml() : generateOperatorPolicyJson();
+        console.log(output);
+        return 0;
+      }
+
+      case "diag": {
+        const targetRunId = parsed.subArgs[0];
+        if (!targetRunId) {
+          console.error("Error: Run ID is required. Usage: pi-cloud-agents diag <runId>");
+          return 1;
+        }
+        const { createDiagnosticsBundle } = await import("../core/diagnostics-bundle.js");
+        const { resolveRunId } = await import("../core/status.js");
+        const fullRunId = await resolveRunId(targetRunId);
+        const { bundle, bundleFilePath } = await createDiagnosticsBundle({ runId: fullRunId });
+        if (jsonMode) {
+          console.log(JSON.stringify(bundle, null, 2));
+        } else {
+          console.log(`✓ Diagnostics bundle exported to: ${bundleFilePath}`);
+          console.log(`Log lines captured: ${bundle.logLines.length}`);
+          console.log(`Manifest status:    ${bundle.manifest?.status || "unknown"}`);
+        }
+        return 0;
+      }
+
       default: {
         console.error(
           `Unknown command: '${parsed.command}'. Run 'pi-cloud-agents --help' for usage.`,
