@@ -176,6 +176,14 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-07 · review-fixes-agent · T5.10, T5.11
+- did: fixed the twelve findings of the multi-model review of `d351dab`/`20a6001` (T5.10): bounded pagination helper `core/aws/paginate.ts` behind every AWS list call, S3 purge fallback narrowed to access/unsupported errors, CLI bundle with external deps and no sourcemap plus `prepublishOnly`, `KmsKeyArn` wired into the image stack with `kms:GenerateDataKey*`, `ListSecrets` wildcard documented and guarded, one default stack name, `followUp` echo, steer next-step hint, `extractTar` realpath/prefix/PAX hardening. T5.11: `/cloud update` now sends `infra/image.yaml` exactly its declared parameters and fails early on missing core outputs.
+- validated: `npm run check` (63 files / 504 tests green), `npm run build`, `npm pack --dry-run` (bin present, no map), `rg -c node_modules/esbuild dist/cli/main.js` = 0, `node dist/cli/main.js --help`.
+- left: nothing in scope. Latent: controller gets the image stack name as `PI_CLOUD_STACK` while run-scoped secret names use the core stack name; dormant today (no producer of `formatRunSecretName`), needs a card before the janitor path is used.
+- next: first live `/cloud update` after T5.11 deserves one watched run (`PI_CLOUD_E2E=1`), then cleanup verification.
+- aws: none
+- open: none
+
 
 
 

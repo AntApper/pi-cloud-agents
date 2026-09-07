@@ -96,8 +96,8 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T5.8 | Docs and release | M | T5.7, T4.10 | done | [docs/evidence/T5.8.md](docs/evidence/T5.8.md) |
 | T5.9 | OAuth token broker (conditional on T0.6) | M/L | T0.6, T4.13 | done (conditional) | [docs/evidence/T0.6.md](docs/evidence/T0.6.md) |
 | G5 | Gate: security review + release | S | T5.7, T5.8 | passed | [docs/evidence/G5.md](docs/evidence/G5.md) |
-| T5.10 | Post-release review fixes: packaging, IAM hygiene, bounded pagination | M | G5 | in-progress (review-fixes-agent, 2026-09-07T01:30Z) | [docs/evidence/T5.10.md](docs/evidence/T5.10.md) |
-| T5.11 | `/cloud update` passes the image stack its declared parameters | S | T4.10 | ready | — |
+| T5.10 | Post-release review fixes: packaging, IAM hygiene, bounded pagination | M | G5 | done | [docs/evidence/T5.10.md](docs/evidence/T5.10.md) |
+| T5.11 | `/cloud update` passes the image stack its declared parameters | S | T4.10 | done | [docs/evidence/T5.11.md](docs/evidence/T5.11.md) |
 
 ## Decisions log (owner)
 

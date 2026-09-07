@@ -49,6 +49,7 @@ import {
   handleCloudUpdateCommand,
 } from "../../extension/commands/lifecycle-ops.js";
 import type { LocalConfig } from "../../shared/config.js";
+import { declaredTemplateParameters } from "../fakes/cfn-template.js";
 
 const cfnMock = mockClient(CloudFormationClient);
 const s3Mock = mockClient(S3Client);
@@ -56,6 +57,15 @@ const microvmsMock = mockClient(LambdaMicrovmsClient);
 const secretsMock = mockClient(SecretsManagerClient);
 
 const testRunnerSha = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+
+// Outputs of a deployed infra/core.yaml stack, as /cloud setup leaves them.
+const coreStackOutputs = [
+  { OutputKey: "BucketName", OutputValue: "test-bucket" },
+  { OutputKey: "StorageBucketName", OutputValue: "test-bucket" },
+  { OutputKey: "BuildRoleArn", OutputValue: "arn:aws:iam::123456789012:role/build" },
+  { OutputKey: "ExecutionRoleArn", OutputValue: "arn:aws:iam::123456789012:role/exec" },
+  { OutputKey: "ImageLogGroup", OutputValue: "/aws/lambda/microvms/pi-cloud-agents-runner-test" },
+];
 
 const mockConfig: LocalConfig = {
   aws: {
@@ -114,28 +124,13 @@ describe("T4.10 Cloud Update & Destroy", () => {
           StackName: "pi-cloud-agents-core",
           CreationTime: new Date(),
           StackStatus: "CREATE_COMPLETE",
-          Outputs: [
-            { OutputKey: "BucketName", OutputValue: "test-bucket" },
-            { OutputKey: "StorageBucketName", OutputValue: "test-bucket" },
-          ],
+          Outputs: coreStackOutputs,
         },
         {
           StackName: "pi-cloud-agents-test",
           CreationTime: new Date(),
           StackStatus: "CREATE_COMPLETE",
-          Outputs: [
-            { OutputKey: "BucketName", OutputValue: "test-bucket" },
-            { OutputKey: "StorageBucketName", OutputValue: "test-bucket" },
-          ],
-        },
-        {
-          StackName: "pi-cloud-agents",
-          CreationTime: new Date(),
-          StackStatus: "CREATE_COMPLETE",
-          Outputs: [
-            { OutputKey: "BucketName", OutputValue: "test-bucket" },
-            { OutputKey: "StorageBucketName", OutputValue: "test-bucket" },
-          ],
+          Outputs: coreStackOutputs,
         },
       ],
     });
@@ -289,7 +284,7 @@ describe("T4.10 Cloud Update & Destroy", () => {
       microvmsMock.on(DeleteMicrovmImageVersionCommand).resolves({});
 
       const res = await executeCloudUpdate({
-        config: mockConfig,
+        config: { ...mockConfig, kmsKeyArn: "arn:aws:kms:us-east-1:123456789012:key/cmk" },
         force: true,
         runnerZipPath: tmpRunnerZip,
         controllerZipPath: tmpRunnerZip,
@@ -298,7 +293,69 @@ describe("T4.10 Cloud Update & Destroy", () => {
       expect(res.updated).toBe(true);
       expect(res.newVersion).toBe("13");
       expect(res.pruneResult?.prunedVersions).toContain("11");
-      expect(cfnMock.commandCalls(CreateChangeSetCommand)).toHaveLength(1);
+
+      // The change set must carry exactly the parameters infra/image.yaml declares; CloudFormation
+      // rejects unknown keys and missing required ones (T5.11).
+      const changeSets = cfnMock.commandCalls(CreateChangeSetCommand);
+      expect(changeSets).toHaveLength(1);
+      const input = changeSets[0]!.args[0].input;
+      expect(input.StackName).toBe("pi-cloud-agents-test-image");
+      const parameters = new Map(
+        (input.Parameters ?? []).map((p) => [p.ParameterKey ?? "", p.ParameterValue ?? ""]),
+      );
+      expect([...parameters.keys()].sort()).toEqual(declaredTemplateParameters("image.yaml"));
+      expect(parameters.get("ArtifactBucket")).toBe("test-bucket");
+      expect(parameters.get("BuildRoleArn")).toBe("arn:aws:iam::123456789012:role/build");
+      expect(parameters.get("ExecutionRoleArn")).toBe("arn:aws:iam::123456789012:role/exec");
+      expect(parameters.get("ImageLogGroup")).toBe(
+        "/aws/lambda/microvms/pi-cloud-agents-runner-test",
+      );
+      expect(parameters.get("ImageName")).toBe("pi-cloud-agents-runner-test");
+      expect(parameters.get("MemoryMiB")).toBe("4096");
+      expect(parameters.get("BaseImageArn")).toBe(
+        "arn:aws:lambda:us-east-1::microvm-image:al2023-minimal",
+      );
+      expect(parameters.get("BaseImageVersion")).toBe("v7");
+      expect(parameters.get("RunnerArtifactKey")).toMatch(/^runner\//);
+      expect(parameters.get("ControllerArtifactKey")).toMatch(/^controller\//);
+      expect(parameters.get("KmsKeyArn")).toBe("arn:aws:kms:us-east-1:123456789012:key/cmk");
+      expect(input.Tags?.map((t) => t.Key)).toEqual(
+        expect.arrayContaining(["pi-cloud-agents:stack", "pi-cloud-agents:managed"]),
+      );
+    });
+
+    it("fails before uploading anything when the core stack lacks the role outputs", async () => {
+      cfnMock.on(DescribeStacksCommand).resolves({
+        Stacks: [
+          {
+            StackName: "pi-cloud-agents-test",
+            CreationTime: new Date(),
+            StackStatus: "CREATE_COMPLETE",
+            Outputs: [{ OutputKey: "BucketName", OutputValue: "test-bucket" }],
+          },
+        ],
+      });
+      microvmsMock.on(GetMicrovmImageCommand).resolves({
+        imageArn: "arn:aws:lambda:us-east-1:123456789012:microvm-image:runner",
+        latestActiveImageVersion: "13",
+      });
+      microvmsMock.on(GetMicrovmImageVersionCommand).resolves({
+        imageVersion: "13",
+        description: JSON.stringify({ manifestSha256: "old-sha" }),
+      });
+      s3Mock.on(PutObjectCommand).resolves({});
+
+      await expect(
+        executeCloudUpdate({
+          config: mockConfig,
+          force: true,
+          runnerZipPath: tmpRunnerZip,
+          controllerZipPath: tmpRunnerZip,
+        }),
+      ).rejects.toThrow(/BuildRoleArn\/ExecutionRoleArn.*\/cloud setup/);
+
+      expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(0);
+      expect(cfnMock.commandCalls(CreateChangeSetCommand)).toHaveLength(0);
     });
   });
 
@@ -414,7 +471,7 @@ describe("T4.10 Cloud Update & Destroy", () => {
           {
             StackName: "pi-cloud-agents-core",
             StackStatus: "CREATE_COMPLETE",
-            Outputs: [{ OutputKey: "BucketName", OutputValue: "test-bucket" }],
+            Outputs: coreStackOutputs,
             CreationTime: new Date(),
           },
         ],

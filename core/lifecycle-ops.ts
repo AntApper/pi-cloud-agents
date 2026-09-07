@@ -8,6 +8,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ListMicrovmsCommand, TerminateMicrovmCommand } from "@aws-sdk/client-lambda-microvms";
 import type { LocalConfig } from "../shared/config.js";
 import { AwsClientFactory } from "./aws/clients.js";
 import {
@@ -16,6 +17,7 @@ import {
   type PruneVersionsResult,
   resolveLatestBaseImage,
 } from "./aws/image.js";
+import { collectPages } from "./aws/paginate.js";
 import { AwsSecretsStore } from "./aws/secrets.js";
 import { StackDeployer } from "./aws/stack.js";
 import { getLocalConfigPath, loadLocalConfig } from "./config.js";
@@ -208,6 +210,17 @@ export async function executeCloudUpdate(
     };
   }
 
+  // The image stack is re-deployed with the same inputs `/cloud setup` used; all of them come
+  // from the core stack outputs, so check them before any upload side effect.
+  const buildRoleArn = coreOutputs.BuildRoleArn;
+  const executionRoleArn = coreOutputs.ExecutionRoleArn;
+  if (!buildRoleArn || !executionRoleArn) {
+    throw new Error(
+      `CloudFormation stack '${stackName}' has no BuildRoleArn/ExecutionRoleArn outputs (CORE_OUTPUTS_MISSING); the image stack cannot be updated. Re-run '/cloud setup' to repair the core stack.`,
+    );
+  }
+  const imageLogGroup = coreOutputs.ImageLogGroup || `/aws/lambda/microvms/${imageName}`;
+
   // 3. Upload runner and controller zip artifacts
   options.onProgress?.("upload_artifacts", "Uploading updated runner and controller artifacts");
   const artifacts = await imageManager.deployImageArtifacts({
@@ -216,11 +229,10 @@ export async function executeCloudUpdate(
     controllerZipPath: controllerZip,
   });
 
-  // 4. Resolve BaseImageVersion
-  const baseImageInfo = await resolveLatestBaseImage(microvmsClient, region);
-  const baseImageVersion = baseImageInfo.baseImageVersion;
+  // 4. Resolve the managed base image and its latest available version
+  const baseImage = await resolveLatestBaseImage(microvmsClient, region);
 
-  // 5. Deploy updated image stack
+  // 5. Deploy updated image stack with exactly the parameters infra/image.yaml declares
   const imageStackName = `${stackName}-image`;
   const imageTemplatePath = options.imageTemplatePath || resolveTemplatePath("image.yaml");
   const imageTemplateBody = fs.existsSync(imageTemplatePath)
@@ -232,12 +244,21 @@ export async function executeCloudUpdate(
     name: imageStackName,
     templateBody: imageTemplateBody,
     parameters: {
-      CoreStackName: stackName,
+      ArtifactBucket: bucketName,
+      RunnerArtifactKey: artifacts.runnerKey,
+      ControllerArtifactKey: artifacts.controllerKey,
       ImageName: imageName,
-      RunnerZipKey: artifacts.runnerKey,
-      ControllerZipKey: artifacts.controllerKey,
-      BaseImageVersion: baseImageVersion,
       MemoryMiB: String(config.image.memoryMiB || 4096),
+      BuildRoleArn: buildRoleArn,
+      ExecutionRoleArn: executionRoleArn,
+      BaseImageArn: baseImage.baseImageArn,
+      BaseImageVersion: baseImage.baseImageVersion,
+      ImageLogGroup: imageLogGroup,
+      KmsKeyArn: config.kmsKeyArn ?? "",
+    },
+    tags: {
+      "pi-cloud-agents:stack": stackName,
+      "pi-cloud-agents:managed": "true",
     },
     capabilities: ["CAPABILITY_NAMED_IAM", "CAPABILITY_AUTO_EXPAND"],
     onProgress: (evt) => {
@@ -329,18 +350,18 @@ export async function executeCloudDestroy(
   options.onProgress?.("terminate_vms", "Checking for active MicroVMs to terminate");
   let terminatedVmsCount = 0;
   try {
-    const listRes = await microvmsClient.send(
-      new (await import("@aws-sdk/client-lambda-microvms")).ListMicrovmsCommand({}),
-    );
-    const vms = listRes.items || [];
+    const vms = await collectPages({
+      fetchPage: (nextToken: string | undefined) =>
+        microvmsClient.send(new ListMicrovmsCommand({ nextToken })),
+      nextToken: (page) => page.nextToken,
+      items: (page) => page.items,
+    });
     for (const vm of vms) {
       if (vm.microvmId && vm.state !== "TERMINATED" && vm.state !== "TERMINATING") {
         options.onProgress?.("terminate_vm", `Terminating MicroVM '${vm.microvmId}'`);
         try {
           await microvmsClient.send(
-            new (await import("@aws-sdk/client-lambda-microvms")).TerminateMicrovmCommand({
-              microvmIdentifier: vm.microvmId,
-            }),
+            new TerminateMicrovmCommand({ microvmIdentifier: vm.microvmId }),
           );
           terminatedVmsCount++;
         } catch {
