@@ -142,8 +142,8 @@ Owner answers recorded 2026-09-06 (see §C and `STATUS.md` decisions log).
 | A8 | `AWS::Lambda::MicrovmImage` supports hooks, env vars, memory baseline, tags | **Verified by CFN reference**; all properties required; async build → poll after stack completes (G3 confirms stabilization behavior) |
 | A11 | `lambda:PassNetworkConnector` is required on every `RunMicrovm` even with default connectors | **Verified by docs**; included in OperatorPolicy and controller role |
 | A12 | Lambda MicroVMs is GA (June 2026, 5 regions; 10 as of Aug 2026) with no account enablement step; new accounts have reduced quotas | Verified by AWS announcements + quotas page; T0.2 checks quotas |
-| A9 | A copied pi credential works on a second machine; OAuth refresh does not invalidate the original (per provider) | T0.6 |
-| A10 | Every provider's auth entry fits a Secrets Manager value (64 KB) — expected trivially true; record sizes | T0.6 |
+| A9 | A copied pi credential works on a second machine; OAuth refresh does not invalidate the original (per provider) | **Verified with nuances (T0.6)**: API keys, GitHub Copilot, and OpenRouter are fully portable with zero refresh conflict. Rotating OAuth providers (Anthropic Claude, OpenAI Codex, xAI, Kimi Code, Radius) invalidate local refresh tokens upon remote refresh, confirming ADR-5 opt-in notice policy and T5.9 OAuth token broker requirement for seamless multi-instance OAuth. See [docs/evidence/T0.6.md](docs/evidence/T0.6.md) |
+| A10 | Every provider's auth entry fits a Secrets Manager value (64 KB) — expected trivially true; record sizes | **Verified (T0.6)**: API key entries are ~50–250 B; OAuth entries are ~300–2,000 B; full auth.json files are ~1–10 KB — all well within the 64 KB (65,536 B) AWS Secrets Manager limit. See [docs/evidence/T0.6.md](docs/evidence/T0.6.md) |
 
 ## C. Owner decisions (2026-09-06) and remaining questions
 

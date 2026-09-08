@@ -13,7 +13,7 @@ decisions in the log at the bottom. **Implementation has not started (owner deci
 | T0.3 | Spike: hello MicroVM end to end [AWS] | M | T0.2 | ready | |
 | T0.4 | Spike: guest capabilities + keepalive [AWS] | M | T0.3 | todo | |
 | T0.5 | Spike: pi headless on ARM64 + mock LLM [AWS] | M | T0.3 | todo | |
-| T0.6 | Spike: pi credential portability (API keys, OAuth) | M | T0.1 | ready | |
+| T0.6 | Spike: pi credential portability (API keys, OAuth) | M | T0.1 | done | [docs/evidence/T0.6.md](docs/evidence/T0.6.md) |
 | G0 | Gate: spikes complete, decisions confirmed | S | T0.2–T0.6 | pending | |
 
 ## Phase 1 — Contracts

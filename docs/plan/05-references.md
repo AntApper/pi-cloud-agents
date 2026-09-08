@@ -168,11 +168,14 @@ Sources: local install `@earendil-works/pi-coding-agent@0.85.1` README, `docs/ex
   `~/.pi/agent/models.json` (custom providers/models), `~/.pi/agent/settings.json`; all under
   `PI_CODING_AGENT_DIR` when set — the runner points the in-VM pi at an assembled directory.
   Auth resolution order: runtime overrides → `auth.json` → env vars → `models.json` fallback.
-  Extensions read resolved credentials with `ctx.modelRegistry.getProviderAuth(id)`; the raw
-  `auth.json` entry schema is pi-internal (record it in T0.6 before relying on it).
-- OAuth providers pi supports via `/login`: Anthropic (Claude Pro/Max), OpenAI (ChatGPT/Codex),
-  GitHub Copilot, plus extension-registered OAuth providers. Tokens `{refresh, access, expires}`
-  are refreshed by pi when expired — the basis of risk R-4 (portability/refresh conflicts).
+  Extensions read resolved credentials with `ctx.modelRegistry.getProviderAuth(id)`.
+  Verified schema (T0.6):
+  - API Key: `{"type": "api_key", "key"?: string, "env"?: Record<string, string>}`. Key resolution supports literal strings (`sk-...`), environment variable interpolation (`$ENV_VAR` or `${ENV_VAR}`), and command execution (`!command...`). Command strings reference local tools (Keychain, 1Password) and must be resolved by `ctx.modelRegistry.getProviderAuth()` before exporting to the VM.
+  - OAuth: `{"type": "oauth", "access": string, "refresh": string, "expires": number, "accountId"?: string, "enterpriseUrl"?: string, "availableModelIds"?: string[], "scope"?: string}`.
+  - Entry sizes (measured): API keys ~50–250 B, OAuth ~300–2,000 B; full files ~1–10 KB (all well below AWS Secrets Manager's 64 KB limit).
+- OAuth providers and refresh collision dynamics (verified in T0.6):
+  - **Rotating OAuth** (Anthropic Claude Pro/Max, OpenAI ChatGPT/Codex, xAI Grok, Kimi Code, Radius Gateway): OAuth 2.0 PKCE / device code flow with refresh token rotation. Exchanging the refresh token in a VM invalidates the local machine's refresh token. Requires opt-in per provider with ToS notice (owner decision R2, ADR-5) and requires T5.9 OAuth token broker for conflict-free multi-environment execution.
+  - **Non-rotating OAuth** (GitHub Copilot, OpenRouter): GitHub Copilot stores a static GitHub OAuth token as `refresh` and calls `copilot_internal/v2/token` to mint short-lived session tokens without rotating the underlying token (no conflict; safe to sync by default). OpenRouter OAuth mints a permanent API key with no expiration and a no-op refresh (no conflict; safe to sync by default).
 - Session files: JSONL tree; `get_entries` cursor semantics; custom entries never enter LLM context.
 - Remote execution pattern: tool `operations` (`createBashTool(cwd, {operations})`, `user_bash`
   hook) — basis for the optional hybrid mode (T6.2).

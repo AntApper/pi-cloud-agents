@@ -64,4 +64,13 @@ Entry template:
 - aws: none
 - open: none
 
+## 2026-09-06 · t0.6-credentials · T0.6
+- did: implemented credential portability analyzer (`core/credentials.ts`), spike script (`scripts/spike/credential-portability.ts`), and 22 unit tests covering auth schemas, size validation, masking, and export simulation.
+- validated: `npm run spike:credential-portability`, `npm run check` (41 tests green, 0 glyph violations), verified A9/A10.
+- left: T0.6 complete.
+- next: start `T0.3` (hello MicroVM spike).
+- aws: none
+- open: none
+
+
 

@@ -38,6 +38,7 @@
     "e2e:aws": "node scripts/e2e-aws.js",
     "aws:cleanup": "tsx scripts/aws-cleanup.ts",
     "spike:aws-readiness": "tsx scripts/spike/aws-readiness.ts",
+    "spike:credential-portability": "tsx scripts/spike/credential-portability.ts",
     "spike:hello-microvm": "node scripts/spike/hello-microvm.js"
   },
   "peerDependencies": {
